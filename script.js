@@ -1,6 +1,6 @@
 const API_URL = window.location.hostname === 'localhost' 
-   ? "http://localhost:3000/api" 
-   : "https://gestao-jirineu.onrender.com/api";
+    ? "http://localhost:3000/api" 
+    : "https://gestao-jirineu.onrender.com/api";
 
 // DADOS DE BACKUP INTEGRADOS (CUSTO KG) - MANTIDOS ORIGINAIS
 const backupInicial = [
@@ -653,4 +653,5 @@ window.onload = async () => {
     }
     
     atualizarDash();
+
 };
