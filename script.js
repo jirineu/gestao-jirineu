@@ -591,38 +591,37 @@ function exportarBackup() {
     a.click();
 }
 
-function importarBackup(event) {
+async function importarBackup(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async function(e) { // Adicionamos async aqui
+    reader.onload = async function(e) {
         try {
             const d = JSON.parse(e.target.result);
             
-            // 1. Atualiza as variáveis locais
+            // Atualiza as variáveis globais com os dados do arquivo
             produtos = d.produtos || [];
             vendas = d.vendas || [];
             configs = d.configs || { valorFixo: 0 };
             listaCompras = d.listaCompras || [];
 
-            // 2. Salva no servidor (MongoDB) e no LocalStorage
-            await sincronizar(); 
+            // FORÇA a sincronização com o Render/MongoDB
+            await sincronizar();
 
-            notify("Sucesso!", "Dados importados e sincronizados com a nuvem.", "success");
+            notify("Sucesso!", "Dados importados e salvos na nuvem.", "success");
             
-            // 3. Recarrega a página para atualizar as telas e gráficos
+            // Pequena pausa para garantir que o banco de dados recebeu tudo antes de recarregar
             setTimeout(() => {
                 location.reload();
-            }, 1500);
+            }, 1000);
 
         } catch (err) { 
-            console.error(err);
-            notify("Erro", "Arquivo inválido ou erro na sincronização.", "error"); 
+            console.error("Erro na importação:", err);
+            notify("Erro", "Arquivo de backup inválido.", "error"); 
         }
     };
     reader.readAsText(file);
 }
-
 // --- DETALHES ---
 function verDetalhesVenda(id) {
     const venda = vendas.find(v => v.id === id);
