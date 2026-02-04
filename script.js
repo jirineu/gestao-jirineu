@@ -1,6 +1,6 @@
 const API_URL = window.location.hostname === 'localhost' 
-    ? "http://localhost:3000/api" 
-    : "https://gestao-jirineu.onrender.com/api";
+   ? "http://localhost:3000/api" 
+   : "https://gestao-jirineu.onrender.com/api";
 
 // DADOS DE BACKUP INTEGRADOS (CUSTO KG) - MANTIDOS ORIGINAIS
 const backupInicial = [
@@ -595,14 +595,30 @@ function importarBackup(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) { // Adicionamos async aqui
         try {
             const d = JSON.parse(e.target.result);
-            produtos = d.produtos; vendas = d.vendas; configs = d.configs || { valorFixo: 0 };
-            sincronizar();
-            notify("Sucesso!", "Dados importados.", "success");
-            location.reload();
-        } catch (err) { notify("Erro", "Arquivo inválido.", "error"); }
+            
+            // 1. Atualiza as variáveis locais
+            produtos = d.produtos || [];
+            vendas = d.vendas || [];
+            configs = d.configs || { valorFixo: 0 };
+            listaCompras = d.listaCompras || [];
+
+            // 2. Salva no servidor (MongoDB) e no LocalStorage
+            await sincronizar(); 
+
+            notify("Sucesso!", "Dados importados e sincronizados com a nuvem.", "success");
+            
+            // 3. Recarrega a página para atualizar as telas e gráficos
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+
+        } catch (err) { 
+            console.error(err);
+            notify("Erro", "Arquivo inválido ou erro na sincronização.", "error"); 
+        }
     };
     reader.readAsText(file);
 }
@@ -653,5 +669,4 @@ window.onload = async () => {
     }
     
     atualizarDash();
-
 };
