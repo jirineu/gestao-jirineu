@@ -1,0 +1,15 @@
+{
+  "name": "Gestão Jirineu",
+  "short_name": "Jirineu",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2e7d32",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3081/3081931.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
