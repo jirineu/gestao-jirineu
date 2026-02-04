@@ -1,6 +1,6 @@
 const API_URL = window.location.hostname === 'localhost' 
    ? "http://localhost:3000/api" 
-   : "https://SUA-URL-DO-RENDER.onrender.com/api";
+   : "https://gestao-jirineu.onrender.com/api";
 
 // DADOS DE BACKUP INTEGRADOS (CUSTO KG) - MANTIDOS ORIGINAIS
 const backupInicial = [
