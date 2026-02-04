@@ -1,6 +1,55 @@
+// No topo do script.js
+let usuarioLogado = null; // Inicia vazio
+
+window.onload = async () => {
+    const sessaoSalva = localStorage.getItem('sessao_jirineu');
+
+    if (sessaoSalva) {
+        // Recupera os dados do disco
+        usuarioLogado = JSON.parse(sessaoSalva);
+        
+        // Esconde o login imediatamente
+        document.getElementById('modalLogin').style.display = 'none';
+        
+        // Carrega os dados do banco
+        await carregarDadosReais();
+
+        // Se for restrito, esconde as abas proibidas
+        if (usuarioLogado.tipo === "restrito") {
+            aplicarRestricoes(usuarioLogado.permissoes);
+        }
+        
+        console.log("Sessão restaurada com sucesso.");
+    }
+};
+
+// --- FUNÇÃO PARA APLICAR AS RESTRIÇÕES VISUAIS ---
+function aplicarRestricoes(permissoes) {
+    const botoesNav = document.querySelectorAll('.nav-item');
+    
+    botoesNav.forEach(btn => {
+        // Extrai o nome da tela do atributo onclick
+        const onclickAttr = btn.getAttribute('onclick');
+        if (onclickAttr) {
+            const telaNome = onclickAttr.split("'")[1];
+            
+            // Se a tela não estiver na lista de permissões, remove o botão
+            if (!permissoes.includes(telaNome)) {
+                btn.style.display = 'none';
+            }
+        }
+    });
+
+    // Se o usuário cair numa tela proibida por erro, joga ele para a primeira permitida
+    if (!permissoes.includes('dash')) {
+        showScreen(permissoes[0]);
+    }
+}
+
 const API_URL = window.location.hostname === 'localhost' 
    ? "http://localhost:3000/api" 
    : "https://gestao-jirineu.onrender.com/api";
+   
 
 // DADOS DE BACKUP INTEGRADOS (CUSTO KG) - MANTIDOS ORIGINAIS
 const backupInicial = [
@@ -669,3 +718,399 @@ window.onload = async () => {
     
     atualizarDash();
 };
+
+
+
+async // --- FUNÇÃO DE LOGIN DO ADMIN ---
+async function validarAdmin() {
+    const senha = document.getElementById('senhaAdmin').value;
+    
+    // Senha Mestra
+    if (senha === "Freego123@") {
+        // Define o objeto do utilizador com tipo ADMIN para permitir criar outros
+        usuarioLogado = { 
+            user: "Admin Principal", 
+            tipo: "admin", 
+            permissoes: ['dash', 'lista', 'estoque', 'vendas', 'config'] 
+        };
+        
+        // Guarda a sessão para não sair ao dar F5
+        localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
+        
+        document.getElementById('modalLogin').style.display = 'none';
+        
+        // Agora a função existe abaixo!
+        await carregarDadosReais(); 
+        
+        if(typeof notify === "function") notify("Admin", "Acesso total liberado", "success");
+    } else {
+        alert("Senha incorreta!");
+    }
+}
+
+// --- FUNÇÃO QUE BUSCA DADOS NO RENDER (BANCO ONLINE) ---
+async function carregarDadosReais() {
+    try {
+        const res = await fetch(`${API_URL}/data`); 
+        const data = await res.json();
+        
+        if (data) {
+            produtos = data.produtos || [];
+            vendas = data.vendas || [];
+            listaCompras = data.listaCompras || [];
+            configs = data.configs || { valorFixo: 0 };
+            
+            // Se o banco também trouxer a lista de utilizadores cadastrados
+            usuariosCadastrados = data.usuarios || [];
+
+            renderizarTudo();
+            console.log("Dados do MongoDB carregados com sucesso.");
+        }
+    } catch (e) {
+        console.error("Erro ao conectar com o banco online:", e);
+        // Fallback: tenta carregar do localStorage se o banco falhar
+        produtos = JSON.parse(localStorage.getItem('sp_prods')) || [];
+    }
+}
+function confirmarLoginVisita() {
+    usuarioLogado = "visita";
+    document.getElementById('modalLogin').style.display = 'none';
+    
+    // Alimenta as variáveis globais com os dados de exemplo
+    produtos = [...dadosFicticios.produtos];
+    vendas = [...dadosFicticios.vendas];
+    listaCompras = [...dadosFicticios.listaCompras];
+    configs = dadosFicticios.configs;
+
+    renderizarTudo(); // Chama a atualização da tela e do gráfico
+    bloquearFuncoesVisita();
+    
+    if(typeof notify === "function") notify("Modo Visita", "Dados de demonstração ativos.", "info");
+}
+function renderizarTudo() {
+    // Chama a função do gráfico que já existe no seu código
+    if (typeof atualizarDash === "function") atualizarDash(); 
+    
+    // Chama as listagens das tabelas
+    if (typeof listarEstoque === "function") listarEstoque();
+    if (typeof listarVendas === "function") listarVendas();
+}
+
+function bloquearFuncoesVisita() {
+    document.querySelectorAll('button, input').forEach(el => {
+        const txt = el.innerText ? el.innerText.toLowerCase() : "";
+        // Bloqueia se for input ou botões de ação crítica
+        if (el.tagName === "INPUT" || txt.includes("salvar") || txt.includes("excluir") || txt.includes("vender")) {
+            el.disabled = true;
+            el.style.opacity = '0.5';
+            el.style.cursor = 'not-allowed';
+        }
+    });
+}
+
+// --- FUNÇÕES DE NAVEGAÇÃO DO MODAL (LIGAM AOS BOTÕES DO INDEX.HTML) ---
+
+// 1. Mostra os campos de senha quando clica em "Acesso Administrador"
+function mostrarCamposAdmin() {
+    document.getElementById('loginOpcoes').style.display = 'none';
+    document.getElementById('msgVisita').style.display = 'none';
+    document.getElementById('loginAdminCampos').style.display = 'block';
+    document.getElementById('senhaAdmin').focus();
+}
+
+// 2. Volta para a tela inicial do modal
+function voltarOpcoes() {
+    document.getElementById('loginAdminCampos').style.display = 'none';
+    document.getElementById('loginOpcoes').style.display = 'block';
+    document.getElementById('msgVisita').style.display = 'none';
+}
+
+// 3. Mostra o aviso do modo visita
+function mostrarInfoVisita() {
+    document.getElementById('loginAdminCampos').style.display = 'none';
+    document.getElementById('loginOpcoes').style.display = 'none';
+    document.getElementById('msgVisita').style.display = 'block';
+}
+
+// 4. Valida a senha do Admin e carrega dados reais
+async function validarAdmin() {
+    const passIn = document.getElementById('senhaAdmin').value;
+
+    // 1. Verificação da Senha Mestra (Acesso Total Garantido)
+    if (passIn === "Freego123@") {
+        usuarioLogado = { user: "Admin", tipo: "admin", permissoes: ['dash', 'lista', 'estoque', 'vendas', 'config'] };
+        
+        // Salva no navegador para não precisar logar de novo ao dar F5
+        localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
+        
+        document.getElementById('modalLogin').style.display = 'none';
+        
+        // Carrega os dados reais do Render
+        if (typeof carregarDadosReais === "function") await carregarDadosReais();
+        
+        notify("Bem-vindo", "Acesso Administrador liberado", "success");
+        return; // Para a execução aqui pois já logou
+    }
+
+    // 2. Se não for a senha mestra, tenta procurar utilizadores cadastrados no banco
+    try {
+        const res = await fetch(`${API_URL}/usuarios`); // Rota que busca utilizadores no banco
+        const usuarios = await res.json();
+        
+        const userEncontrado = usuarios.find(u => u.pass === passIn);
+
+        if (userEncontrado) {
+            usuarioLogado = userEncontrado;
+            localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
+            document.getElementById('modalLogin').style.display = 'none';
+            
+            await carregarDadosReais();
+            
+            if (usuarioLogado.tipo === "restrito") {
+                aplicarRestricoes(usuarioLogado.permissoes);
+            }
+            
+            notify("Olá", `Bem-vindo, ${usuarioLogado.user}`, "success");
+        } else {
+            alert("Acesso negado: Senha incorreta.");
+        }
+    } catch (e) {
+        console.error("Erro ao validar no banco:", e);
+        alert("Acesso negado: Senha incorreta ou erro de conexão.");
+    }
+}
+async function confirmarLoginVisita() {
+    // 1. Dados de Backup (Caso o arquivo JSON falhe, o sistema usa estes)
+    const dadosDeSeguranca = {
+        "produtos": [
+            { "id": 501, "nome": "Pimenta (Exemplo)", "custo": 80, "gramas": 50, "venda": 6.5, "estoque": 45 },
+            { "id": 502, "nome": "Edu Guedes (Exemplo)", "custo": 35, "gramas": 100, "venda": 7.5, "estoque": 20 }
+        ],
+        "vendas": [
+            { "id": 901, "cliente": "Venda Paga", "total": 45.50, "status": "pago", "dataISO": new Date().toISOString(), "itens": [] },
+            { "id": 902, "cliente": "Venda Devedora", "total": 15.00, "status": "devedor", "dataISO": new Date().toISOString(), "itens": [] }
+        ],
+        "listaCompras": [],
+        "configs": { "valorFixo": 3.5 }
+    };
+
+    try {
+        // Tenta carregar o arquivo externo
+        const response = await fetch('dados_visita.json');
+        
+        if (!response.ok) throw new Error("Arquivo não encontrado");
+
+        const dadosJson = await response.json();
+        produtos = dadosJson.produtos;
+        vendas = dadosJson.vendas;
+        listaCompras = dadosJson.listaCompras || [];
+        configs = dadosJson.configs || { valorFixo: 3.5 };
+        console.log("Dados carregados via JSON externo.");
+
+    } catch (error) {
+        // Se der erro (como o que aconteceu), ele usa os dados acima automaticamente
+        console.warn("Usando dados de demonstração internos (Plano B).");
+        produtos = dadosDeSeguranca.produtos;
+        vendas = dadosDeSeguranca.vendas;
+        listaCompras = dadosDeSeguranca.listaCompras;
+        configs = dadosDeSeguranca.configs;
+    }
+
+    // Fecha o modal e libera a tela
+    usuarioLogado = "visita";
+    document.getElementById('modalLogin').style.display = 'none';
+
+    // Atualiza os gráficos e tabelas com os nomes das funções que já existem no seu script
+    if (typeof atualizarDash === "function") atualizarDash(); 
+    if (typeof listarEstoque === "function") listarEstoque();
+    if (typeof listarVendas === "function") listarVendas();
+    
+    // Bloqueia botões de salvar/excluir
+    if (typeof bloquearFuncoesVisita === "function") bloquearFuncoesVisita();
+
+    if (typeof notify === "function") {
+        notify("Modo Visita", "Dados de demonstração carregados com sucesso.", "info");
+    }
+}
+async function cadastrarNovoUsuario(nome, senha, permissoes) {
+    if (usuarioLogado.tipo !== 'admin') return alert("Acesso negado");
+
+    const novoUsuario = {
+        user: nome.toLowerCase().trim(),
+        pass: senha,
+        tipo: "restrito",
+        permissoes: permissoes // Ex: ['dash', 'vendas']
+    };
+
+    try {
+        // Enviando para a sua rota de salvamento no Render
+        const res = await fetch(`${API_URL}/save-user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(novoUsuario)
+        });
+
+        if (res.ok) {
+            notify("Sucesso", "Usuário cadastrado no banco online!", "success");
+        }
+    } catch (e) {
+        console.error("Erro ao salvar usuário:", e);
+    }
+}
+
+function aplicarRestricoes(permissoes) {
+    // Mapeamento dos botões da nav
+    const botoesNav = document.querySelectorAll('.nav-item');
+    
+    botoesNav.forEach(btn => {
+        // Pega o nome da tela no onclick, ex: showScreen('estoque', this) -> 'estoque'
+        const telaNome = btn.getAttribute('onclick').split("'")[1];
+        
+        if (!permissoes.includes(telaNome)) {
+            btn.style.display = 'none'; // Esconde a aba se não tiver permissão
+        }
+    });
+    
+    // Redireciona para a primeira tela permitida
+    showScreen(permissoes[0], botoesNav[0]);
+}
+function prepararCadastro() {
+    const nome = document.getElementById('novo-user-nome').value;
+    const senha = document.getElementById('novo-user-senha').value;
+    const checks = document.querySelectorAll('.perm-check:checked');
+    const permissoes = Array.from(checks).map(c => c.value);
+
+    if (nome && senha && permissoes.length > 0) {
+        cadastrarNovoUsuario(nome, senha, permissoes);
+    } else {
+        alert("Preencha nome, senha e ao menos uma permissão!");
+    }
+}
+window.onload = () => {
+    const sessaoSalva = localStorage.getItem('sessao_jirineu');
+    
+    if (sessaoSalva) {
+        usuarioLogado = JSON.parse(sessaoSalva);
+        document.getElementById('modalLogin').style.display = 'none';
+        
+        carregarDadosReais().then(() => {
+            if (usuarioLogado.tipo === "restrito") {
+                aplicarRestricoes(usuarioLogado.permissoes);
+            }
+        });
+    } else {
+        console.log("Nenhum utilizador logado. Aguardando...");
+    }
+};
+function efetuarLogout() {
+    localStorage.removeItem('sessao_jirineu');
+    location.reload(); // Recarrega a página e o Modal de login aparecerá
+}
+// --- FUNÇÃO PARA CARREGAR DADOS (ADMIN) ---
+async function carregarDadosReais() {
+    try {
+        const res = await fetch(`${API_URL}/data`);
+        const data = await res.json();
+        if (data) {
+            produtos = data.produtos || [];
+            vendas = data.vendas || [];
+            // Aqui carregamos também os utilizadores do banco para conferência
+            usuariosCadastrados = data.usuarios || []; 
+            renderizarTudo();
+        }
+    } catch (e) {
+        console.error("Erro ao carregar dados:", e);
+    }
+}
+
+// --- FUNÇÃO PARA CRIAR UTILIZADOR (CHAMADA PELO BOTÃO) ---
+async function cadastrarNovoUsuario() {
+    // 1. Verifica se quem está logado é ADMIN (apenas o Super Admin pode criar)
+    if (usuarioLogado.tipo !== 'admin') {
+        alert("Acesso negado: Apenas o Administrador Principal pode criar contas.");
+        return;
+    }
+
+    const nome = document.getElementById('novo-user-nome').value;
+    const senha = document.getElementById('novo-user-senha').value;
+    const checks = document.querySelectorAll('.perm-check:checked');
+    const permissoes = Array.from(checks).map(c => c.value);
+
+    if (!nome || !senha || permissoes.length === 0) {
+        alert("Preencha o nome, senha e escolha as permissões!");
+        return;
+    }
+
+    const novoUser = {
+        user: nome.toLowerCase().trim(),
+        pass: senha,
+        tipo: "restrito",
+        permissoes: permissoes
+    };
+
+    try {
+        const res = await fetch(`${API_URL}/save-user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(novoUser)
+        });
+
+        if (res.status === 200) {
+            alert("Utilizador cadastrado com sucesso no banco online!");
+            location.reload(); // Recarrega para limpar e atualizar
+        } else {
+            const msg = await res.json();
+            alert("Erro: " + msg.message);
+        }
+    } catch (e) {
+        alert("Erro 404: A rota não foi encontrada no servidor.");
+    }
+}
+// Mostra os inputs de login
+function mostrarCamposAdmin() {
+    document.getElementById('loginOpcoes').style.display = 'none';
+    document.getElementById('loginAdminCampos').style.display = 'block';
+    document.getElementById('userLogin').focus();
+}
+
+// Volta para os botões de Admin/Visita
+function voltarOpcoes() {
+    document.getElementById('loginAdminCampos').style.display = 'none';
+    document.getElementById('loginOpcoes').style.display = 'block';
+}
+
+// A sua função validarAdmin deve ser atualizada para ler também o campo 'userLogin'
+async function validarAdmin() {
+    const usuarioDigitado = document.getElementById('userLogin').value.toLowerCase().trim();
+    const senhaDigitada = document.getElementById('senhaAdmin').value;
+
+    // 1. Atalho para Super Admin
+    if (senhaDigitada === "Freego123@" && (usuarioDigitado === "admin" || usuarioDigitado === "")) {
+        usuarioLogado = { user: "Admin", tipo: "admin", permissoes: ['dash', 'lista', 'estoque', 'vendas', 'config'] };
+        finalizarLogin();
+        return;
+    }
+
+    // 2. Busca no banco de dados para outros utilizadores
+    try {
+        const res = await fetch(`${API_URL}/usuarios`);
+        const usuarios = await res.json();
+        const encontrado = usuarios.find(u => u.user === usuarioDigitado && u.pass === senhaDigitada);
+
+        if (encontrado) {
+            usuarioLogado = encontrado;
+            finalizarLogin();
+        } else {
+            alert("Utilizador ou senha incorretos.");
+        }
+    } catch (e) {
+        alert("Erro ao conectar com o servidor.");
+    }
+}
+
+function finalizarLogin() {
+    localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
+    document.getElementById('modalLogin').style.display = 'none';
+    carregarDadosReais();
+    if (usuarioLogado.tipo === "restrito") aplicarRestricoes(usuarioLogado.permissoes);
+}
