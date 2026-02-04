@@ -1,3 +1,35 @@
+
+// IMPORTANTE: Adicione isso no topo para o servidor entender JSON
+app.use(express.json());
+
+// ROTA PARA SALVAR USUÁRIO (Resolve o Erro 404)
+app.post('/api/save-user', async (req, res) => {
+    try {
+        const db = client.db("seu_banco"); // Ajuste o nome do seu banco
+        const usuariosColl = db.collection("usuarios");
+        const novoUser = req.body;
+
+        // Verifica duplicidade
+        const existe = await usuariosColl.findOne({ user: novoUser.user });
+        if (existe) return res.status(400).json({ message: "Usuário já existe" });
+
+        await usuariosColl.insertOne(novoUser);
+        res.status(200).json({ message: "Usuário criado com sucesso" });
+    } catch (e) {
+        res.status(500).json({ message: "Erro no servidor" });
+    }
+});
+
+// ROTA PARA BUSCAR USUÁRIOS (Para o login funcionar)
+app.get('/api/usuarios', async (req, res) => {
+    try {
+        const db = client.db("seu_banco");
+        const lista = await db.collection("usuarios").find().toArray();
+        res.json(lista);
+    } catch (e) {
+        res.status(500).send("Erro");
+    }
+});
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -140,3 +172,4 @@ app.post('/api/save-user', async (req, res) => {
         res.status(500).send("Erro ao salvar");
     }
 });
+
