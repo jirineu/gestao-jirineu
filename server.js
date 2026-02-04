@@ -80,3 +80,63 @@ app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando.`);
     console.log(`📍 Local: http://localhost:${PORT}`);
 });
+// Rota para salvar novos utilizadores (POST)
+app.post('/api/save-user', async (req, res) => {
+    try {
+        // 1. Conectar ao banco de dados (ajuste o nome do DB para o seu)
+        const db = client.db("seu_nome_do_banco");
+        const usuariosColl = db.collection("usuarios");
+
+        // 2. Receber os dados enviados pelo front-end
+        const { user, pass, tipo, permissoes } = req.body;
+
+        // 3. Validação básica: verificar se o utilizador já existe
+        const usuarioExistente = await usuariosColl.findOne({ user: user.toLowerCase() });
+        if (usuarioExistente) {
+            return res.status(400).json({ message: "Este nome de utilizador já existe!" });
+        }
+
+        // 4. Preparar o documento para inserir no MongoDB
+        const novoUsuario = {
+            user: user.toLowerCase(),
+            pass: pass, // Nota: Em produção, o ideal é usar bcrypt para criptografar
+            tipo: tipo,
+            permissoes: permissoes,
+            criadoEm: new Date()
+        };
+
+        // 5. Inserir no banco de dados
+        await usuariosColl.insertOne(novoUsuario);
+
+        // 6. Responder com sucesso
+        res.status(200).json({ message: "Utilizador criado com sucesso!" });
+
+    } catch (error) {
+        console.error("Erro ao salvar utilizador:", error);
+        res.status(500).json({ message: "Erro interno no servidor ao salvar utilizador." });
+    }
+});
+// Rota para buscar todos os usuários (necessária para validar login de terceiros)
+app.get('/api/usuarios', async (req, res) => {
+    try {
+        const db = client.db("SEU_BANCO_DE_DADOS");
+        const users = await db.collection("usuarios").find().toArray();
+        res.json(users);
+    } catch (e) {
+        res.status(500).send("Erro ao buscar usuários");
+    }
+});
+
+// Rota para salvar novo usuário
+app.post('/api/save-user', async (req, res) => {
+    try {
+        const db = client.db("SEU_BANCO_DE_DADOS");
+        const novoUser = req.body;
+        
+        // Insere no banco MongoDB
+        await db.collection("usuarios").insertOne(novoUser);
+        res.status(200).send("Criado com sucesso");
+    } catch (e) {
+        res.status(500).send("Erro ao salvar");
+    }
+});
