@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GestaoVendasNaturalJirineu</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+    <main id="app-container">
+        <section id="screen-dash" class="screen active">
+            <h2 class="section-title">📊 Dashboard</h2>
+            <div class="card">
+                <label for="dash-periodo">Filtrar Período</label>
+                <select id="dash-periodo" class="custom-select" onchange="atualizarDash()">
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="15">Últimos 15 dias</option>
+                    <option value="30" selected>Últimos 30 dias</option>
+                    <option value="90">Últimos 90 dias</option>
+                </select>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span class="stat-label">Vendas</span>
+                        <h3 id="dash-vendas-total">R$ 0,00</h3>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Itens</span>
+                        <h3 id="dash-itens-total">0</h3>
+                    </div>
+                </div>
+
+                <div class="chart-container" style="position: relative; height:220px;">
+                    <canvas id="meuGrafico"></canvas>
+                </div>
+
+                <div class="stats-grid financial-grid" style="margin-top: 20px;">
+                    <div class="stat-box" style="border-top: 4px solid #3498db;">
+                        <span class="stat-label">Investimento em Estoque</span>
+                        <h3 id="dash-custo-estoque" style="font-size: 1.1rem;">R$ 0,00</h3>
+                    </div>
+                    <div class="stat-box" style="border-top: 4px solid #27ae60;">
+                        <span class="stat-label">Valor de Venda</span>
+                        <h3 id="dash-venda-estoque" style="font-size: 1.1rem;">R$ 0,00</h3>
+                    </div>
+                </div>
+                
+                <div class="stat-box-full" style="padding: 12px; background: #ebf9f1; border-radius: 8px; border-left: 4px solid #2ecc71; margin-bottom: 20px;">
+                    <span class="info-sub" style="color: #27ae60; font-weight: bold;">💰 Lucro Bruto Previsto (Estoque):</span>
+                    <div id="dash-lucro-previsto" class="info-main" style="font-size: 1.3rem; color: #1e8449;">R$ 0,00</div>
+                </div>
+
+                <div id="dash-stats-extras" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                    <div class="stat-box-full" style="margin-bottom: 10px; padding: 12px; background: #fffcf5; border-radius: 8px; border-left: 4px solid #f1c40f;">
+                        <span class="info-sub" style="color: #967d09; font-weight: bold;">⭐ Produto Mais Vendido (Período):</span>
+                        <div id="dash-prod-top" class="info-main" style="margin-top: 4px;">-</div>
+                    </div>
+
+                    <div class="stat-box-full" style="margin-bottom: 10px; padding: 12px; background: #f5faff; border-radius: 8px; border-left: 4px solid #3498db;">
+                        <span class="info-sub" style="color: #2980b9; font-weight: bold;">👤 Melhor Cliente (Acumulado):</span>
+                        <div id="dash-cliente-top" class="info-main" style="margin-top: 4px;">-</div>
+                    </div>
+
+                    <div class="stat-box-full" style="margin-bottom: 10px; padding: 12px; background: #fff5f5; border-radius: 8px; border-left: 4px solid var(--danger);">
+                        <span class="info-sub" style="color: #c0392b; font-weight: bold;">⚠️ Estoque Crítico:</span>
+                        <div id="dash-estoque-critico" class="info-main" style="color: var(--danger); margin-top: 4px;">0 produtos</div>
+                    </div>
+
+                    <div class="stat-box-full" style="padding: 12px; background: #f9f9f9; border-radius: 8px;">
+                        <span class="info-sub" style="font-weight: bold;">🧊 Menos Movimentados (10):</span>
+                        <div id="dash-menos-movimentados" class="info-sub" style="font-size: 0.85rem; margin-top: 8px; line-height: 1.5;">-</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="screen-add" class="screen">
+            <h2 class="section-title" id="titulo-form">➕ Novo Produto</h2>
+            <div class="card form-card">
+                <input type="hidden" id="p-id">
+                <div class="input-group">
+                    <label>Nome do Tempero</label>
+                    <input type="text" id="p-nome" placeholder="Ex: Páprica Defumada">
+                </div>
+                <div class="row">
+                    <div class="input-group">
+                        <label>Custo/KG (R$)</label>
+                        <input type="number" id="p-custo" placeholder="0.00" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label>Gramas/Un</label>
+                        <input type="number" id="p-gramas" placeholder="50">
+                    </div>
+                </div>
+                <div class="price-badge">
+                    <small>Preço Padrão (Base Config):</small>
+                    <span id="p-sugerido">R$ 0,00</span>
+                </div>
+                <div class="input-group">
+                    <label>Preço de Venda Final (R$)</label>
+                    <input type="number" id="p-venda" class="highlight-input" step="0.01">
+                </div>
+                <div class="input-group">
+                    <label>Observações</label>
+                    <textarea id="p-obs" rows="2" placeholder="Ex: Fornecedor, validade..."></textarea>
+                </div>
+                <button class="btn btn-save" onclick="salvarProduto()">💾 Salvar Produto</button>
+                <button id="btn-cancelar" class="btn btn-cancel" style="display:none; margin-top: 10px;" onclick="cancelarEdicao()">Cancelar Edição</button>
+            </div>
+        </section>
+
+        <section id="screen-lista" class="screen">
+            <h2 class="section-title">📝 Produção / Compras</h2>
+            <div class="card">
+                <div class="input-group">
+                    <label>Selecionar Produto</label>
+                    <select id="li-produto-select" class="custom-select"></select>
+                </div>
+                <div class="row">
+    <div class="input-group">
+        <label>Gramas Compradas</label>
+        <input type="number" id="li-qtd-gramas" placeholder="Ex: 1000">
+    </div>
+    <div class="input-group">
+        <label>Para quem? (Opcional)</label>
+        <input type="text" id="li-destinatario" placeholder="Ex: João">
+    </div>
+</div>
+<button class="btn btn-save" style="margin-top: 10px;" onclick="adicionarNaLista()">Adicionar na Lista</button>
+            </div>
+            <div id="lista-compras-pendentes" class="list-container"></div>
+        </section>
+
+        <section id="screen-estoque" class="screen">
+            <div class="header-vendas">
+                <h2 class="section-title">📦 Estoque</h2>
+                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <button class="btn-report" style="background: var(--success);" onclick="showScreen('add')">➕ Novo</button>
+                    <button class="btn-report" style="background: #2980b9;" onclick="abrirPainelInventario()">📝 Inv.</button>
+                    <button class="btn-report" onclick="gerarRelatorioPDF()">📋 PDF</button>
+                </div>
+            </div>
+            <div class="search-box">
+                <input type="text" id="busca-estoque" placeholder="🔍 Pesquisar tempero..." onkeyup="listarEstoque()">
+            </div>
+            <div id="lista-estoque" class="list-container"></div>
+        </section>
+
+        <section id="screen-inventario" class="screen">
+            <h2 class="section-title">📝 Atualizar Inventário</h2>
+            <div class="card">
+                <div class="input-group">
+                    <label>Produto</label>
+                    <select id="inv-produto-select" class="custom-select"></select>
+                </div>
+              <div class="input-group">
+    <label>Nova Quantidade Real (em Gramas)</label>
+    <input type="number" id="inv-nova-qtd-gramas" placeholder="Ex: 500 para 0,5kg">
+</div>  
+                <button class="btn btn-save" onclick="salvarInventario()">💾 Atualizar Estoque</button>
+                <button class="btn btn-cancel" style="margin-top:10px" onclick="showScreen('estoque')">Voltar</button>
+            </div>
+        </section>
+
+        <section id="screen-vendas" class="screen">
+            <div class="header-vendas">
+                <h2 class="section-title">💰 Vendas</h2>
+                <button class="btn-action" onclick="abrirNovaVenda()">Nova Venda</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="busca-venda" placeholder="🔍 Cliente ou Data..." onkeyup="listarVendas()">
+            </div>
+            <div id="lista-vendas-realizadas" class="list-container"></div>
+        </section>
+
+        <section id="screen-nova-venda" class="screen">
+            <h2 class="section-title">🛒 Nova Venda</h2>
+            <div class="card">
+                <div class="input-group">
+                    <label>Nome do Cliente</label>
+                    <input type="text" id="v-cliente-nome" placeholder="Opcional">
+                </div>
+                <div class="cart-selector" style="background: #f9f9f9; padding: 10px; border-radius: 8px;">
+                    <label>Produto</label>
+                    <select id="v-produto-select" class="custom-select" style="margin-bottom: 10px;"></select>
+                    <div class="row">
+                        <input type="number" id="v-qtd" value="1" min="1" style="flex: 1;">
+                        
+                        <button class="btn btn-save" style="flex: 2;" onclick="adicionarAoCarrinho()">Adicionar</button>
+                    </div>
+                </div>
+                <div id="carrinho-itens" style="margin:20px 0; border-bottom: 1px dashed #ccc;"></div>
+                <div class="cart-total" style="display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 20px;">
+                    <span>Total:</span>
+                    <strong id="v-total-carrinho" style="color: var(--success);">R$ 0,00</strong>
+                </div>
+                <div class="input-group" style="margin-top: 15px;">
+    <label>Situação do Pagamento</label>
+    <select id="v-status-pagamento" class="custom-select">
+        <option value="pago" selected>✅ Pago </option>
+        <option value="devedor">⏳ Devedor </option>
+    </select>
+</div>
+                <button class="btn btn-save" onclick="finalizarVenda()">✅ Finalizar Venda</button>
+                <button class="btn btn-cancel" style="margin-top:10px" onclick="showScreen('vendas')">Cancelar</button>
+            </div>
+        </section>
+
+        <section id="screen-config" class="screen">
+            <h2 class="section-title">⚙️ Configurações</h2>
+            <div class="card">
+                <div class="input-group">
+                    <label>Preço de Venda Padrão (R$)</label>
+                    <input type="number" id="cfg-valor-fixo" step="0.01">
+                </div>
+                <button class="btn btn-save" onclick="salvarConfig()">Salvar Ajuste</button>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+                <label>📦 Gerenciar Dados</label>
+                <button class="btn" style="background: #34495e; color: white; margin-bottom: 10px; width: 100%;" onclick="exportarBackup()">📤 Exportar Backup (JSON)</button>
+                <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importarBackup(event)">
+                <button class="btn btn-cancel" style="width: 100%;" onclick="document.getElementById('import-file').click()">📂 Importar Backup</button>
+            </div>
+        </section>
+    </main>
+
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="showScreen('dash', this)"><i>📊</i><span>Dash</span></button>
+        <button class="nav-item" onclick="showScreen('lista', this)"><i>📝</i><span>Entrada</span></button>
+        <button class="nav-item" onclick="showScreen('estoque', this)"><i>📦</i><span>Estoque</span></button>
+        <button class="nav-item" onclick="showScreen('vendas', this)"><i>💰</i><span>Vendas</span></button>
+        <button class="nav-item" onclick="showScreen('config', this)"><i>⚙️</i><span>Config</span></button>
+    </nav>
+
+    <script src="script.js"></script>
+</body>
+</html>
