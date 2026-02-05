@@ -284,3 +284,9 @@
     <script src="script.js"></script>
 </body>
 </html>
+
+function mostrarCamposAdmin() {
+    document.getElementById('loginOpcoes').style.display = 'none';
+    document.getElementById('adminInputs').style.display = 'block';
+}
+
