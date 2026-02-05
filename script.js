@@ -975,7 +975,8 @@ function aplicarRestricoes(permissoes) {
     showScreen(permissoes[0], botoesNav[0]);
 }
 function prepararCadastro() {
-    const nome = document.getElementById('novo-user-nome').value;
+    // Aqui alteramos para 'novo-user-login', que é o ID que está no seu HTML
+    const nome = document.getElementById('novo-user-login').value; 
     const senha = document.getElementById('novo-user-senha').value;
     const checks = document.querySelectorAll('.perm-check:checked');
     const permissoes = Array.from(checks).map(c => c.value);
@@ -983,7 +984,7 @@ function prepararCadastro() {
     if (nome && senha && permissoes.length > 0) {
         cadastrarNovoUsuario(nome, senha, permissoes);
     } else {
-        alert("Preencha nome, senha e ao menos uma permissão!");
+        Swal.fire("Erro", "Preencha todos os campos!", "error");
     }
 }
 window.onload = () => {
@@ -1066,13 +1067,46 @@ async function cadastrarNovoUsuario() {
         alert("Erro 404: A rota não foi encontrada no servidor.");
     }
 }
+
 // Mostra os inputs de login
 function mostrarCamposAdmin() {
     document.getElementById('loginOpcoes').style.display = 'none';
     document.getElementById('loginAdminCampos').style.display = 'block';
     document.getElementById('userLogin').focus();
 }
+async function cadastrarNovoUsuario(nome, senha, permissoes) {
+    try {
+        // O corpo (body) deve ter os nomes que o servidor espera: user, pass, tipo, permissoes
+        const dados = {
+            user: nome,
+            pass: senha,
+            tipo: "restrito",
+            permissoes: permissoes
+        };
 
+        const response = await fetch(`${API_URL}/save-user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dados)
+        });
+
+        const resultado = await response.json();
+
+        if (response.ok) {
+            Swal.fire("Sucesso!", "Novo utilizador cadastrado no banco de dados!", "success");
+            
+            // Limpa o formulário após o sucesso
+            document.getElementById('novo-user-nome').value = "";
+            document.getElementById('novo-user-senha').value = "";
+            document.querySelectorAll('.perm-check').forEach(c => c.checked = false);
+        } else {
+            Swal.fire("Erro", resultado.message || "Erro ao cadastrar", "error");
+        }
+    } catch (error) {
+        console.error("Erro na requisição:", error);
+        Swal.fire("Erro", "Não foi possível conectar ao servidor.", "error");
+    }
+}
 // Volta para os botões de Admin/Visita
 function voltarOpcoes() {
     document.getElementById('loginAdminCampos').style.display = 'none';
