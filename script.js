@@ -989,15 +989,21 @@ function aplicarRestricoes(permissoes) {
     showScreen(permissoes[0], botoesNav[0]);
 }
 function prepararCadastro() {
-    // Captura os valores dos campos
-    const nome = document.getElementById('novo-user-login').value;
-    const senha = document.getElementById('novo-user-senha').value;
-    
-    // Captura as permissões marcadas
+    // 1. Capturamos os elementos primeiro
+    const campoLogin = document.getElementById('novo-user-login');
+    const campoSenha = document.getElementById('novo-user-senha');
+
+    // 2. Verificamos se eles existem antes de pedir o '.value'
+    if (!campoLogin || !campoSenha) {
+        console.error("ERRO: IDs 'novo-user-login' ou 'novo-user-senha' não encontrados no HTML!");
+        return;
+    }
+
+    const nome = campoLogin.value;
+    const senha = campoSenha.value;
     const checks = document.querySelectorAll('.perm-check:checked');
     const permissoes = Array.from(checks).map(c => c.value);
 
-    // Validação simples
     if (nome.trim() && senha.trim() && permissoes.length > 0) {
         cadastrarNovoUsuario(nome, senha, permissoes);
     } else {
