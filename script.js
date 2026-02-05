@@ -1,1116 +1,286 @@
-// No topo do script.js
-let usuarioLogado = null; // Inicia vazio
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GestaoVendasNaturalJirineu</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <div id="modalLogin" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; display:flex; align-items:center; justify-content:center; font-family: sans-serif; color: #333;">
+    <div style="background:white; padding:30px; border-radius:15px; max-width:400px; width:90%; text-align:center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+        <h2 style="margin-bottom: 10px; color: #2e7d32;">🌿 Gestão Jirineu</h2>
+        <p style="margin-bottom: 25px; color: #666; font-size: 14px;">Selecione o modo de acesso</p>
 
-window.onload = async () => {
-    const sessaoSalva = localStorage.getItem('sessao_jirineu');
+        <div id="loginOpcoes">
+            <button onclick="mostrarCamposAdmin()" style="width:100%; padding:15px; margin-bottom:15px; border:none; border-radius:8px; background:#2e7d32; color:white; font-weight:bold; cursor:pointer; font-size: 16px;">🔑 Entrar com Senha</button>
+            <button onclick="confirmarLoginVisita()" style="width:100%; padding:15px; border:2px solid #2e7d32; border-radius:8px; background:white; color:#2e7d32; font-weight:bold; cursor:pointer; font-size: 16px;">👁️ Modo Visitante (Demo)</button>
+        </div>
 
-    if (sessaoSalva) {
-        // Recupera os dados do disco
-        usuarioLogado = JSON.parse(sessaoSalva);
-        
-        // Esconde o login imediatamente
-        document.getElementById('modalLogin').style.display = 'none';
-        
-        // Carrega os dados do banco
-        await carregarDadosReais();
-
-        // Se for restrito, esconde as abas proibidas
-        if (usuarioLogado.tipo === "restrito") {
-            aplicarRestricoes(usuarioLogado.permissoes);
-        }
-        
-        console.log("Sessão restaurada com sucesso.");
-    }
-};
-
-// --- FUNÇÃO PARA APLICAR AS RESTRIÇÕES VISUAIS ---
-function aplicarRestricoes(permissoes) {
-    const botoesNav = document.querySelectorAll('.nav-item');
-    
-    botoesNav.forEach(btn => {
-        // Extrai o nome da tela do atributo onclick
-        const onclickAttr = btn.getAttribute('onclick');
-        if (onclickAttr) {
-            const telaNome = onclickAttr.split("'")[1];
-            
-            // Se a tela não estiver na lista de permissões, remove o botão
-            if (!permissoes.includes(telaNome)) {
-                btn.style.display = 'none';
-            }
-        }
-    });
-
-    // Se o usuário cair numa tela proibida por erro, joga ele para a primeira permitida
-    if (!permissoes.includes('dash')) {
-        showScreen(permissoes[0]);
-    }
-}
-
-const API_URL = window.location.hostname === 'localhost' 
-   ? "http://localhost:3000/api" 
-   : "https://gestao-jirineu.onrender.com/api";
-   
-
-// DADOS DE BACKUP INTEGRADOS (CUSTO KG) - MANTIDOS ORIGINAIS
-const backupInicial = [
-    { "id": 101, "nome": "Paparica picante", "custo": 12.00, "gramas": 100, "venda": 5.00, "estoque": 0, "obs": "" },
-    { "id": 102, "nome": "Paparica doce", "custo": 12.00, "gramas": 100, "venda": 5.00, "estoque": 0, "obs": "" },
-    { "id": 103, "nome": "Paparica defumada", "custo": 12.00, "gramas": 100, "venda": 5.00, "estoque": 1, "obs": "" },
-    { "id": 104, "nome": "Colorau", "custo": 25.00, "gramas": 50, "venda": 3.50, "estoque": 10, "obs": "" },
-    { "id": 105, "nome": "Chimi - churi", "custo": 28.20, "gramas": 50, "venda": 3.50, "estoque": 3, "obs": "" },
-    { "id": 106, "nome": "Edu Guedes", "custo": 26.70, "gramas": 50, "venda": 3.50, "estoque": 1, "obs": "" },
-    { "id": 107, "nome": "Ana Maria", "custo": 19.90, "gramas": 50, "venda": 3.50, "estoque": 6, "obs": "" },
-    { "id": 108, "nome": "Lemon Pepper", "custo": 24.00, "gramas": 50, "venda": 3.50, "estoque": 4, "obs": "" },
-    { "id": 109, "nome": "Alho frito", "custo": 25.50, "gramas": 100, "venda": 6.00, "estoque": 5, "obs": "" },
-    { "id": 110, "nome": "Têmpera tudo", "custo": 27.00, "gramas": 50, "venda": 3.50, "estoque": 0, "obs": "" },
-    { "id": 111, "nome": "Tempero baiano", "custo": 26.50, "gramas": 100, "venda": 5.00, "estoque": 4, "obs": "" },
-    { "id": 112, "nome": "Tempero baiano S/", "custo": 20.00, "gramas": 100, "venda": 5.00, "estoque": 2, "obs": "" },
-    { "id": 113, "nome": "Tempero mineiro", "custo": 21.00, "gramas": 50, "venda": 3.50, "estoque": 4, "obs": "" },
-    { "id": 114, "nome": "Vinagrete", "custo": 34.70, "gramas": 50, "venda": 3.50, "estoque": 5, "obs": "" },
-    { "id": 115, "nome": "Salsa cebola e alho", "custo": 31.60, "gramas": 50, "venda": 3.50, "estoque": 4, "obs": "" },
-    { "id": 116, "nome": "Coentro inteiro", "custo": 9.00, "gramas": 50, "venda": 2.00, "estoque": 3, "obs": "" },
-    { "id": 117, "nome": "Orégano", "custo": 0, "gramas": 25, "venda": 2.00, "estoque": 0, "obs": "" },
-    { "id": 118, "nome": "Folhas de Louro", "custo": 36.50, "gramas": 25, "venda": 3.50, "estoque": 0, "obs": "" },
-    { "id": 119, "nome": "Chá de especiarias", "custo": 29.90, "gramas": 100, "venda": 7.00, "estoque": 0, "obs": "" },
-    { "id": 120, "nome": "Chá camomila", "custo": 34.90, "gramas": 100, "venda": 7.00, "estoque": 0, "obs": "" },
-    { "id": 121, "nome": "Chá erva doce", "custo": 24.99, "gramas": 50, "venda": 5.00, "estoque": 0, "obs": "" },
-    { "id": 122, "nome": "Chá capim", "custo": 0, "gramas": 100, "venda": 5.00, "estoque": 0, "obs": "" },
-    { "id": 123, "nome": "Castanhas", "custo": 61.00, "gramas": 100, "venda": 9.99, "estoque": 0, "obs": "" }
-];
-
-// VARIÁVEIS GLOBAIS
-let produtos = JSON.parse(localStorage.getItem('sp_prods')) || backupInicial;
-let vendas = JSON.parse(localStorage.getItem('sp_vendas')) || [];
-let configs = JSON.parse(localStorage.getItem('sp_cfgs')) || { valorFixo: 0 };
-let listaCompras = JSON.parse(localStorage.getItem('sp_lista')) || [];
-let carrinho = [];
-let chart = null;
-
-
-// --- FUNÇÃO DE SINCRONIZAÇÃO (ADICIONADA) ---
-async function sincronizar() {
-    localStorage.setItem('sp_prods', JSON.stringify(produtos));
-    localStorage.setItem('sp_vendas', JSON.stringify(vendas));
-    localStorage.setItem('sp_cfgs', JSON.stringify(configs));
-    localStorage.setItem('sp_lista', JSON.stringify(listaCompras));
-
-    try {
-        await fetch(`${API_URL}/save`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ produtos, vendas, configs, listaCompras })
-        });
-    } catch (e) { console.warn("Offline: Node não sincronizou."); }
-}
-
-// --- NAVEGAÇÃO ---
-function notify(title, text, icon) {
-    Swal.fire({ title, text, icon, confirmButtonColor: '#e67e22' });
-}
-
-function showScreen(id, btn) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById('screen-' + id).classList.add('active');
-    
-    if(!btn) {
-        const map = { 'dash':0, 'lista':1, 'estoque':2, 'vendas':3, 'config':4 };
-        btn = document.querySelectorAll('.nav-item')[map[id]];
-    }
-    if(btn) btn.classList.add('active');
-
-    if(id === 'add') aplicarPrecoPadrao();
-    if(id === 'estoque') listarEstoque();
-    if(id === 'vendas') listarVendas();
-    if(id === 'dash') atualizarDash();
-    if(id === 'lista') abrirListaCompras();
-    if(id === 'config') document.getElementById('cfg-valor-fixo').value = configs.valorFixo;
-}
-
-// --- CONFIGURAÇÕES ---
-function salvarConfig() {
-    configs.valorFixo = document.getElementById('cfg-valor-fixo').value;
-    sincronizar(); // SALVAMENTO CENTRALIZADO
-    notify("Sucesso!", "Preço padrão de venda atualizado!", "success");
-}
-
-function aplicarPrecoPadrao() {
-    if(!document.getElementById('p-id').value) {
-        const v = parseFloat(configs.valorFixo) || 0;
-        document.getElementById('p-venda').value = v.toFixed(2);
-        document.getElementById('p-sugerido').innerText = `R$ ${v.toFixed(2)}`;
-    }
-}
-
-// --- LISTA DE ENTRADA (MANTIDA ORIGINAL) ---
-function abrirListaCompras() {
-    const sel = document.getElementById('li-produto-select');
-    sel.innerHTML = produtos.map(p => `<option value="${p.id}">${p.nome} (${p.gramas}g/un)</option>`).join('');
-    renderizarLista();
-}
-
-function adicionarNaLista() {
-    const id = parseInt(document.getElementById('li-produto-select').value);
-    const gramasInformadas = parseFloat(document.getElementById('li-qtd-gramas').value);
-    const destinatario = document.getElementById('li-destinatario').value || "";
-    
-    if(!gramasInformadas) return notify("Atenção", "Insira a quantidade total em gramas!", "warning");
-    
-    const p = produtos.find(x => x.id === id);
-    const unidadesConvertidas = gramasInformadas / p.gramas; 
-
-    listaCompras.push({ 
-        idLista: Date.now(), 
-        idProd: id, 
-        nome: p.nome, 
-        destinatario: destinatario,
-        gramasPedidas: gramasInformadas,
-        qtdUnidades: unidadesConvertidas 
-    });
-    
-    sincronizar();
-    document.getElementById('li-qtd-gramas').value = '';
-    document.getElementById('li-destinatario').value = '';
-    renderizarLista();
-}
-
-function renderizarLista() {
-    const cont = document.getElementById('lista-compras-pendentes');
-    cont.innerHTML = '';
-    if(listaCompras.length === 0) {
-        cont.innerHTML = '<p style="text-align:center; color:#95a5a6; margin-top:20px;">Nenhum item pendente.</p>';
-        return;
-    }
-    listaCompras.forEach(i => {
-        const infoDestinatario = i.destinatario ? `<br><small>👤 Para: ${i.destinatario}</small>` : "";
-        cont.innerHTML += `<div class="item-row">
-            <div>
-                <div class="info-main">${i.nome}${infoDestinatario}</div>
-                <div class="info-sub">${i.gramasPedidas}g → <b>${i.qtdUnidades.toFixed(2)} potes</b></div>
+        <div id="loginAdminCampos" style="display:none;">
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-size: 12px; font-weight: bold; color: #444;">NOME DE UTILIZADOR</label>
+                <input type="text" id="userLogin" placeholder="Ex: admin ou vendedor" style="width:100%; padding:12px; margin-top:5px; border:1px solid #ccc; border-radius:5px; box-sizing: border-box;">
             </div>
-            <div style="display:flex; gap:5px;">
-                <button class="btn-mini" style="background:var(--success)" onclick="confirmarCompra(${i.idLista})">✅</button>
-                <button class="btn-mini" style="background:var(--danger)" onclick="removerLista(${i.idLista})">✕</button>
+            <div style="text-align: left; margin-bottom: 20px;">
+                <label style="font-size: 12px; font-weight: bold; color: #444;">PALAVRA-PASSE</label>
+                <input type="password" id="senhaAdmin" placeholder="••••••••" style="width:100%; padding:12px; margin-top:5px; border:1px solid #ccc; border-radius:5px; box-sizing: border-box;">
             </div>
-        </div>`;
-    });
-}
+            
+            <button onclick="validarAdmin()" style="width:100%; padding:15px; border:none; border-radius:8px; background:#2e7d32; color:white; font-weight:bold; cursor:pointer; margin-bottom: 10px;">Confirmar Acesso</button>
+            <button onclick="voltarOpcoes()" style="background:none; border:none; color:#666; cursor:pointer; text-decoration:underline; font-size: 13px;">Voltar</button>
+        </div>
+    </div>
+</div>
+    <main id="app-container">
+        <section id="screen-dash" class="screen active">
+            <h2 class="section-title">📊 Dashboard</h2>
+            <div class="card">
+                <label for="dash-periodo">Filtrar Período</label>
+                <select id="dash-periodo" class="custom-select" onchange="atualizarDash()">
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="15">Últimos 15 dias</option>
+                    <option value="30" selected>Últimos 30 dias</option>
+                    <option value="90">Últimos 90 dias</option>
+                </select>
 
-function confirmarCompra(idL) {
-    const idx = listaCompras.findIndex(l => l.idLista === idL);
-    const item = listaCompras[idx];
-    const pIdx = produtos.findIndex(p => p.id === item.idProd);
-    
-    if(pIdx !== -1) {
-        produtos[pIdx].estoque = (parseFloat(produtos[pIdx].estoque) || 0) + item.qtdUnidades;
-        listaCompras.splice(idx, 1);
-        sincronizar();
-        renderizarLista();
-        notify("Estoque Atualizado", `${item.nome}: +${item.qtdUnidades.toFixed(2)} unidades adicionadas.`, "success");
-    }
-}
-
-function removerLista(idL) {
-    listaCompras = listaCompras.filter(l => l.idLista !== idL);
-    sincronizar();
-    renderizarLista();
-}
-
-// --- GESTÃO DE PRODUTOS ---
-function excluirProduto(id) {
-    Swal.fire({
-        title: 'Excluir Produto?',
-        text: "Esta ação é irreversível!",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#e74c3c',
-        confirmButtonText: 'Sim, excluir',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            produtos = produtos.filter(p => p.id != id);
-            sincronizar();
-            notify("Excluído!", "O produto foi removido.", "success");
-            limparForm();
-            showScreen('estoque');
-        }
-    });
-}
-
-function salvarProduto() {
-    const id = document.getElementById('p-id').value;
-    const nome = document.getElementById('p-nome').value;
-    const custo = parseFloat(document.getElementById('p-custo').value) || 0;
-    const gramas = parseFloat(document.getElementById('p-gramas').value) || 1;
-    const venda = parseFloat(document.getElementById('p-venda').value) || 0;
-    const obs = document.getElementById('p-obs').value;
-
-    if(!nome) return notify("Erro", "O nome do produto é obrigatório!", "error");
-
-    if(id) {
-        const i = produtos.findIndex(p => p.id == id);
-        produtos[i] = {...produtos[i], nome, custo, gramas, venda, obs};
-    } else {
-        produtos.push({ id: Date.now(), nome, custo, gramas, venda, estoque: 0, obs });
-    }
-
-    sincronizar();
-    limparForm();
-    showScreen('estoque');
-    notify("Sucesso", "Produto salvo!", "success");
-}
-
-function listarEstoque() {
-    const cont = document.getElementById('lista-estoque');
-    const busca = document.getElementById('busca-estoque').value.toLowerCase();
-    cont.innerHTML = '';
-
-    const filtrados = produtos.filter(p => p.nome.toLowerCase().includes(busca));
-    
-    if(filtrados.length === 0) {
-        cont.innerHTML = '<p style="text-align:center; padding:20px;">Nenhum produto encontrado.</p>';
-        return;
-    }
-
-    filtrados.forEach(p => {
-        const statusCor = p.estoque < 1 ? 'color:var(--danger); font-weight:bold;' : '';
-        cont.innerHTML += `
-            <div class="item-row" style="${p.estoque < 1 ? 'border-left: 4px solid var(--danger)' : ''}">
-                <div>
-                    <div class="info-main">${p.nome}</div>
-                    <div class="info-sub" style="${statusCor}">Qtd: ${parseFloat(p.estoque).toFixed(2)} un | R$ ${p.venda.toFixed(2)}</div>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span class="stat-label">Vendas</span>
+                        <h3 id="dash-vendas-total">R$ 0,00</h3>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Itens</span>
+                        <h3 id="dash-itens-total">0</h3>
+                    </div>
                 </div>
-                <div style="display: flex; gap: 5px;">
-                    <button onclick="movEstoque(${p.id}, -1)" class="btn-mini" style="background:var(--danger)">-1</button>
-                    <button onclick="movEstoque(${p.id}, 1)" class="btn-mini" style="background:var(--success)">+1</button>
-                    <button onclick="editarProduto(${p.id})" class="btn-mini" style="background:var(--dark)">✎</button>
+
+                <div class="chart-container" style="position: relative; height:220px;">
+                    <canvas id="meuGrafico"></canvas>
                 </div>
-            </div>`;
-    });
-}
 
-function movEstoque(id, qtd) {
-    const i = produtos.findIndex(p => p.id == id);
-    produtos[i].estoque = Math.max(0, (parseFloat(produtos[i].estoque) || 0) + qtd);
-    sincronizar();
-    listarEstoque();
-}
-
-function editarProduto(id) {
-    const p = produtos.find(p => p.id == id);
-    if (!p) return;
-
-    document.getElementById('p-id').value = p.id;
-    document.getElementById('p-nome').value = p.nome;
-    document.getElementById('p-custo').value = p.custo;
-    document.getElementById('p-gramas').value = p.gramas;
-    document.getElementById('p-venda').value = p.venda;
-    document.getElementById('p-obs').value = p.obs || '';
-    document.getElementById('titulo-form').innerText = "✎ Editar Produto";
-    document.getElementById('btn-cancelar').style.display = 'block';
-
-    let btnExcluir = document.getElementById('btn-excluir-dinamico');
-    if (!btnExcluir) {
-        btnExcluir = document.createElement('button');
-        btnExcluir.id = 'btn-excluir-dinamico';
-        btnExcluir.className = 'btn';
-        btnExcluir.style.backgroundColor = 'var(--danger)';
-        btnExcluir.style.color = 'white';
-        btnExcluir.style.marginTop = '10px';
-        document.querySelector('.form-card').appendChild(btnExcluir);
-    }
-    
-    btnExcluir.style.display = 'block';
-    btnExcluir.innerHTML = `🗑️ Excluir ${p.nome}`;
-    btnExcluir.onclick = () => excluirProduto(p.id);
-
-    showScreen('add');
-}
-
-function limparForm() {
-    document.getElementById('p-id').value = '';
-    document.getElementById('p-nome').value = '';
-    document.getElementById('p-custo').value = '';
-    document.getElementById('p-gramas').value = '';
-    document.getElementById('p-venda').value = '';
-    document.getElementById('p-obs').value = '';
-    document.getElementById('titulo-form').innerText = "➕ Novo Produto";
-    document.getElementById('btn-cancelar').style.display = 'none';
-
-    const btnExcluir = document.getElementById('btn-excluir-dinamico');
-    if (btnExcluir) btnExcluir.style.display = 'none';
-}
-
-function cancelarEdicao() {
-    limparForm();
-    showScreen('estoque');
-}
-
-// --- INVENTÁRIO PESADO ---
-function abrirPainelInventario() {
-    const sel = document.getElementById('inv-produto-select');
-    sel.innerHTML = produtos.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
-    showScreen('inventario');
-}
-
-function salvarInventario() {
-    const id = parseInt(document.getElementById('inv-produto-select').value);
-    const gramasReais = parseFloat(document.getElementById('inv-nova-qtd-gramas').value);
-    
-    if(isNaN(gramasReais)) return notify("Ops", "Informe o peso total em gramas", "info");
-    
-    const i = produtos.findIndex(p => p.id === id);
-    const p = produtos[i];
-    const novaQtdUnidades = gramasReais / p.gramas;
-    
-    produtos[i].estoque = parseFloat(novaQtdUnidades.toFixed(2));
-    
-    sincronizar();
-    document.getElementById('inv-nova-qtd-gramas').value = '';
-    showScreen('estoque');
-    notify("Inventário Atualizado", `${p.nome}: ${novaQtdUnidades.toFixed(2)} unidades.`, "success");
-}
-
-// --- PDF ---
-function gerarRelatorioPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const dataRef = new Date().toLocaleString('pt-BR');
-
-    doc.setFontSize(18);
-    doc.setTextColor(44, 62, 80);
-    doc.text("Relatório Geral de Estoque - SpiceManager", 14, 20);
-    doc.setFontSize(10);
-    doc.text(`Data de Emissão: ${dataRef}`, 14, 28);
-
-    let totalCustoGeral = 0;
-    let totalVendaGeral = 0;
-
-    const corpoTabela = produtos.map(p => {
-        const custoUnit = (p.custo / 1000) * p.gramas;
-        const custoTotal = custoUnit * p.estoque;
-        const vendaTotal = p.venda * p.estoque;
-        totalCustoGeral += custoTotal;
-        totalVendaGeral += vendaTotal;
-
-        return [
-            p.nome,
-            parseFloat(p.estoque).toFixed(2),
-            `R$ ${custoUnit.toFixed(2)}`,
-            `R$ ${custoTotal.toFixed(2)}`,
-            `R$ ${p.venda.toFixed(2)}`,
-            `R$ ${vendaTotal.toFixed(2)}`
-        ];
-    });
-
-    doc.autoTable({
-        startY: 35,
-        head: [['Produto', 'Qtd', 'Custo Un.', 'Total Custo', 'Venda Un.', 'Total Venda']],
-        body: corpoTabela,
-        theme: 'striped',
-        styles: { fontSize: 8, halign: 'center' },
-        headStyles: { fillColor: [230, 126, 34] }
-    });
-
-    let finalY = doc.lastAutoTable.finalY + 15;
-    doc.setFontSize(11);
-    doc.text(`Total Investido (Custo): R$ ${totalCustoGeral.toFixed(2)}`, 14, finalY);
-    doc.text(`Expectativa de Receita (Venda): R$ ${totalVendaGeral.toFixed(2)}`, 14, finalY + 7);
-    doc.setTextColor(39, 174, 96);
-    doc.text(`Lucro Estimado: R$ ${(totalVendaGeral - totalCustoGeral).toFixed(2)}`, 14, finalY + 14);
-
-    doc.save(`relatorio_${new Date().getTime()}.pdf`);
-}
-
-// --- VENDAS ---
-function abrirNovaVenda() {
-    carrinho = [];
-    document.getElementById('v-cliente-nome').value = '';
-    const sel = document.getElementById('v-produto-select');
-    sel.innerHTML = produtos.map(p => `<option value="${p.id}">${p.nome} (Disponível: ${p.estoque})</option>`).join('');
-    atualizarCarrinhoUI();
-    showScreen('nova-venda');
-}
-
-function adicionarAoCarrinho() {
-    const id = parseInt(document.getElementById('v-produto-select').value);
-    const qtd = parseInt(document.getElementById('v-qtd').value);
-    const p = produtos.find(p => p.id === id);
-
-    if(!p || qtd <= 0) return;
-    if(qtd > p.estoque) return notify("Estoque insuficiente", `Você só tem ${p.estoque} unidades.`, "error");
-    
-    const itemExistente = carrinho.find(c => c.id === id);
-    if(itemExistente) {
-        if((itemExistente.qtd + qtd) > p.estoque) return notify("Erro", "Soma excede o estoque.", "error");
-        itemExistente.qtd += qtd;
-    } else {
-        carrinho.push({ id: p.id, nome: p.nome, qtd, preco: p.venda });
-    }
-    
-    atualizarCarrinhoUI();
-}
-
-function atualizarCarrinhoUI() {
-    const cont = document.getElementById('carrinho-itens');
-    cont.innerHTML = '';
-    let total = 0;
-    carrinho.forEach((c, index) => {
-        const sub = c.qtd * c.preco;
-        total += sub;
-        cont.innerHTML += `
-            <div class="item-row">
-                <span>${c.qtd}x ${c.nome}</span>
-                <span>R$ ${sub.toFixed(2)} <button onclick="removerDoCarrinho(${index})" style="color:var(--danger); background:none; border:none; margin-left:10px; cursor:pointer">✕</button></span>
-            </div>`;
-    });
-    document.getElementById('v-total-carrinho').innerText = `R$ ${total.toFixed(2)}`;
-}
-
-function removerDoCarrinho(index) {
-    carrinho.splice(index, 1);
-    atualizarCarrinhoUI();
-}
-
-function finalizarVenda() {
-    if(carrinho.length === 0) return notify("Aviso", "Carrinho vazio.", "warning");
-    const status = document.getElementById('v-status-pagamento').value;
-    const total = carrinho.reduce((a, b) => a + (b.qtd * b.preco), 0);
-    
-    const venda = {
-        id: Date.now(),
-        dataISO: new Date().toISOString(),
-        cliente: document.getElementById('v-cliente-nome').value || "Cliente Geral",
-        itens: [...carrinho],
-        total: total,
-        status: status
-    };
-
-    carrinho.forEach(item => {
-        const pIdx = produtos.findIndex(p => p.id === item.id);
-        if(pIdx !== -1) produtos[pIdx].estoque -= item.qtd;
-    });
-
-    vendas.push(venda);
-    sincronizar();
-    notify("Sucesso", status === 'pago' ? "Venda finalizada!" : "Registrada como devedor!", "success");
-    showScreen('vendas');
-}
-
-function listarVendas() {
-    const cont = document.getElementById('lista-vendas-realizadas');
-    cont.innerHTML = '';
-
-    vendas.slice().reverse().forEach(v => {
-        const dataF = new Date(v.dataISO).toLocaleString('pt-BR');
-        const isPago = v.status === 'pago';
-        const corStatus = isPago ? '#27ae60' : '#e67e22';
-        const labelStatus = isPago ? 'PAGO' : 'DEVEDOR';
-
-        const botaoBaixa = !isPago ? `<button class="btn-mini" style="background:#27ae60" onclick="darBaixaVenda(${v.id})">Baixa</button>` : '';
-
-        cont.innerHTML += `
-            <div class="item-row" style="border-left: 5px solid ${corStatus}">
-                <div style="flex-grow: 1;">
-                    <div class="info-main">${v.cliente} <small style="color:${corStatus}">(${labelStatus})</small></div>
-                    <div class="info-sub">${dataF} | <b>Total: R$ ${v.total.toFixed(2)}</b></div>
+                <div class="stats-grid financial-grid" style="margin-top: 20px;">
+                    <div class="stat-box" style="border-top: 4px solid #3498db;">
+                        <span class="stat-label">Investimento em Estoque</span>
+                        <h3 id="dash-custo-estoque" style="font-size: 1.1rem;">R$ 0,00</h3>
+                    </div>
+                    <div class="stat-box" style="border-top: 4px solid #27ae60;">
+                        <span class="stat-label">Valor de Venda</span>
+                        <h3 id="dash-venda-estoque" style="font-size: 1.1rem;">R$ 0,00</h3>
+                    </div>
                 </div>
-                <div style="display:flex; gap:12px; align-items: center;">
-                    ${botaoBaixa}
-                    <button onclick="verDetalhesVenda(${v.id})" style="background:none; border:none; text-decoration:underline;">Itens</button>
-                    <button onclick="estornarVenda(${v.id})" style="color:var(--danger); border:none; background:none; font-weight:bold;">Estornar</button>
+                
+                <div class="stat-box-full" style="padding: 12px; background: #ebf9f1; border-radius: 8px; border-left: 4px solid #2ecc71; margin-bottom: 20px;">
+                    <span class="info-sub" style="color: #27ae60; font-weight: bold;">💰 Lucro Bruto Previsto (Estoque):</span>
+                    <div id="dash-lucro-previsto" class="info-main" style="font-size: 1.3rem; color: #1e8449;">R$ 0,00</div>
                 </div>
-            </div>`;
-    });
-}
 
-function darBaixaVenda(id) {
-    const idx = vendas.findIndex(v => v.id === id);
-    if (idx !== -1) {
-        vendas[idx].status = 'pago';
-        sincronizar();
-        listarVendas();
-        notify("Sucesso", "Pagamento recebido!", "success");
-    }
-}
+                <div id="dash-stats-extras" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                    <div class="stat-box-full" style="margin-bottom: 10px; padding: 12px; background: #fffcf5; border-radius: 8px; border-left: 4px solid #f1c40f;">
+                        <span class="info-sub" style="color: #967d09; font-weight: bold;">⭐ Produto Mais Vendido (Período):</span>
+                        <div id="dash-prod-top" class="info-main" style="margin-top: 4px;">-</div>
+                    </div>
 
-function estornarVenda(id) {
-    Swal.fire({
-        title: 'Estornar Venda?',
-        text: "O estoque será devolvido.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#e67e22',
-        confirmButtonText: 'Sim, estornar!',
-    }).then((result) => {
-        if (result.isConfirmed) {
-            const idx = vendas.findIndex(v => v.id === id);
-            if(idx !== -1) {
-                vendas[idx].itens.forEach(i => {
-                    const pIdx = produtos.findIndex(p => p.id === i.id);
-                    if(pIdx !== -1) produtos[pIdx].estoque += i.qtd;
-                });
-                vendas.splice(idx, 1);
-                sincronizar();
-                listarVendas();
-                notify("Estornado", "Venda removida e estoque devolvido.", "success");
-            }
-        }
-    });
-}
+                    <div class="stat-box-full" style="margin-bottom: 10px; padding: 12px; background: #f5faff; border-radius: 8px; border-left: 4px solid #3498db;">
+                        <span class="info-sub" style="color: #2980b9; font-weight: bold;">👤 Melhor Cliente (Acumulado):</span>
+                        <div id="dash-cliente-top" class="info-main" style="margin-top: 4px;">-</div>
+                    </div>
 
-// --- DASHBOARD (CÁLCULOS COMPLETOS) ---
-function atualizarDash() {
-    const periodo = parseInt(document.getElementById('dash-periodo').value);
-    const dataLimite = new Date();
-    dataLimite.setDate(dataLimite.getDate() - periodo);
+                    <div class="stat-box-full" style="margin-bottom: 10px; padding: 12px; background: #fff5f5; border-radius: 8px; border-left: 4px solid var(--danger);">
+                        <span class="info-sub" style="color: #c0392b; font-weight: bold;">⚠️ Estoque Crítico:</span>
+                        <div id="dash-estoque-critico" class="info-main" style="color: var(--danger); margin-top: 4px;">0 produtos</div>
+                    </div>
 
-    const vendasPeriodo = vendas.filter(v => new Date(v.dataISO) >= dataLimite && v.status === 'pago');
-    const totalVendasPeriodo = vendasPeriodo.reduce((a, b) => a + b.total, 0);
-    
-    document.getElementById('dash-vendas-total').innerText = `R$ ${totalVendasPeriodo.toFixed(2)}`;
-    document.getElementById('dash-itens-total').innerText = produtos.length;
-
-    let totalCustoEstoque = 0;
-    let totalVendaEstoque = 0;
-
-    produtos.forEach(p => {
-        const custoUnitario = (p.custo / 1000) * p.gramas; 
-        totalCustoEstoque += custoUnitario * (p.estoque || 0);
-        totalVendaEstoque += p.venda * (p.estoque || 0);
-    });
-
-    document.getElementById('dash-custo-estoque').innerText = `R$ ${totalCustoEstoque.toFixed(2)}`;
-    document.getElementById('dash-venda-estoque').innerText = `R$ ${totalVendaEstoque.toFixed(2)}`;
-    document.getElementById('dash-lucro-previsto').innerText = `R$ ${(totalVendaEstoque - totalCustoEstoque).toFixed(2)}`;
-
-    const rankingProdutos = {};
-    vendasPeriodo.forEach(v => {
-        v.itens.forEach(item => {
-            rankingProdutos[item.nome] = (rankingProdutos[item.nome] || 0) + item.qtd;
-        });
-    });
-    const topProd = Object.entries(rankingProdutos).sort((a,b) => b[1] - a[1])[0];
-    document.getElementById('dash-prod-top').innerText = topProd ? `${topProd[0]} (${topProd[1]} un)` : "-";
-
-    const rankingClientes = {};
-    vendas.forEach(v => { rankingClientes[v.cliente] = (rankingClientes[v.cliente] || 0) + v.total; });
-    const topCliente = Object.entries(rankingClientes).sort((a,b) => b[1] - a[1])[0];
-    document.getElementById('dash-cliente-top').innerText = topCliente ? `${topCliente[0]} (R$ ${topCliente[1].toFixed(2)})` : "-";
-
-    const abaixoDeUm = produtos.filter(p => p.estoque < 1).length;
-    document.getElementById('dash-estoque-critico').innerText = `${abaixoDeUm} produtos`;
-
-    const movimentacao = produtos.map(p => {
-        const vProd = vendasPeriodo.reduce((acc, v) => acc + (v.itens.find(i => i.id === p.id)?.qtd || 0), 0);
-        return { nome: p.nome, qtd: vProd, estoque: p.estoque || 0 };
-    });
-
-    const top10Menos = movimentacao.sort((a,b) => a.qtd - b.qtd).slice(0, 10);
-    document.getElementById('dash-menos-movimentados').innerHTML = top10Menos.map(m => 
-        `• ${m.nome} <br> <small>(Vendas: ${m.qtd} | <b>Estoque: ${parseFloat(m.estoque).toFixed(2)}</b>)</small>`
-    ).join('<br>');
-
-    const ctx = document.getElementById('meuGrafico').getContext('2d');
-    if(chart) chart.destroy();
-    
-    const labelsDias = [];
-    const valoresDias = [];
-    for(let i = periodo; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i);
-        labelsDias.push(d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}));
-        valoresDias.push(vendasPeriodo.filter(v => new Date(v.dataISO).toLocaleDateString() === d.toLocaleDateString()).reduce((a,b) => a + b.total, 0));
-    }
-
-    chart = new Chart(ctx, {
-        type: 'line',
-        data: { labels: labelsDias, datasets: [{ label: 'Vendas (R$)', data: valoresDias, borderColor: '#e67e22', fill: true, tension: 0.3 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-    });
-}
-
-// --- BACKUP ---
-function exportarBackup() {
-    const dados = { produtos, vendas, configs, listaCompras, data: new Date().toISOString() };
-    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `backup_${new Date().getTime()}.json`;
-    a.click();
-}
-
-async function importarBackup(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        try {
-            const d = JSON.parse(e.target.result);
-            
-            // Atualiza as variáveis globais com os dados do arquivo
-            produtos = d.produtos || [];
-            vendas = d.vendas || [];
-            configs = d.configs || { valorFixo: 0 };
-            listaCompras = d.listaCompras || [];
-
-            // FORÇA a sincronização com o Render/MongoDB
-            await sincronizar();
-
-            notify("Sucesso!", "Dados importados e salvos na nuvem.", "success");
-            
-            // Pequena pausa para garantir que o banco de dados recebeu tudo antes de recarregar
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
-
-        } catch (err) { 
-            console.error("Erro na importação:", err);
-            notify("Erro", "Arquivo de backup inválido.", "error"); 
-        }
-    };
-    reader.readAsText(file);
-}
-// --- DETALHES ---
-function verDetalhesVenda(id) {
-    const venda = vendas.find(v => v.id === id);
-    if(!venda) return;
-
-    let listaItens = venda.itens.map(i => 
-        `<div style="display:flex; justify-content:space-between; margin-bottom:5px; border-bottom:1px solid #eee; padding-bottom:5px;">
-            <span>${i.qtd.toFixed(2)}x ${i.nome}</span>
-            <span>R$ ${(i.qtd * i.preco).toFixed(2)}</span>
-        </div>`
-    ).join('');
-
-    Swal.fire({
-        title: `Detalhes do Pedido`,
-        html: `
-            <div style="text-align: left; font-size: 0.9rem; color: #2c3e50;">
-                <p><b>Cliente:</b> ${venda.cliente}</p>
-                <p><b>Data:</b> ${new Date(venda.dataISO).toLocaleString()}</p>
-                <p><b>Status:</b> <span style="color: ${venda.status === 'pago' ? '#27ae60' : '#e67e22'}">${venda.status.toUpperCase()}</span></p>
-                <hr style="margin: 10px 0; border: 0; border-top: 1px solid #eee;">
-                ${listaItens}
-                <div style="text-align: right; margin-top: 15px; font-weight: bold; font-size: 1.1rem; color: #e67e22;">
-                    Total: R$ ${venda.total.toFixed(2)}
+                    <div class="stat-box-full" style="padding: 12px; background: #f9f9f9; border-radius: 8px;">
+                        <span class="info-sub" style="font-weight: bold;">🧊 Menos Movimentados (10):</span>
+                        <div id="dash-menos-movimentados" class="info-sub" style="font-size: 0.85rem; margin-top: 8px; line-height: 1.5;">-</div>
+                    </div>
                 </div>
-            </div>`
-    });
-}
+            </div>
+        </section>
 
-// INICIALIZAÇÃO
-window.onload = async () => {
-    try {
-        // VERIFIQUE SE ESTA LINHA ABAIXO USA ${API_URL}
-        const res = await fetch(`${API_URL}/data`); 
-        
-        const data = await res.json();
-        if (data.produtos) {
-            produtos = data.produtos;
-            vendas = data.vendas || [];
-            configs = data.configs || { valorFixo: 0 };
-            listaCompras = data.listaCompras || [];
-        }
-    } catch (e) { 
-        console.log("Carregado do LocalStorage ou erro de conexão."); 
-    }
+        <section id="screen-add" class="screen">
+            <h2 class="section-title" id="titulo-form">➕ Novo Produto</h2>
+            <div class="card form-card">
+                <input type="hidden" id="p-id">
+                <div class="input-group">
+                    <label>Nome do Tempero</label>
+                    <input type="text" id="p-nome" placeholder="Ex: Páprica Defumada">
+                </div>
+                <div class="row">
+                    <div class="input-group">
+                        <label>Custo/KG (R$)</label>
+                        <input type="number" id="p-custo" placeholder="0.00" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label>Gramas/Un</label>
+                        <input type="number" id="p-gramas" placeholder="50">
+                    </div>
+                </div>
+                <div class="price-badge">
+                    <small>Preço Padrão (Base Config):</small>
+                    <span id="p-sugerido">R$ 0,00</span>
+                </div>
+                <div class="input-group">
+                    <label>Preço de Venda Final (R$)</label>
+                    <input type="number" id="p-venda" class="highlight-input" step="0.01">
+                </div>
+                <div class="input-group">
+                    <label>Observações</label>
+                    <textarea id="p-obs" rows="2" placeholder="Ex: Fornecedor, validade..."></textarea>
+                </div>
+                <button class="btn btn-save" onclick="salvarProduto()">💾 Salvar Produto</button>
+                <button id="btn-cancelar" class="btn btn-cancel" style="display:none; margin-top: 10px;" onclick="cancelarEdicao()">Cancelar Edição</button>
+            </div>
+        </section>
+
+        <section id="screen-lista" class="screen">
+            <h2 class="section-title">📝 Produção / Compras</h2>
+            <div class="card">
+                <div class="input-group">
+                    <label>Selecionar Produto</label>
+                    <select id="li-produto-select" class="custom-select"></select>
+                </div>
+                <div class="row">
+    <div class="input-group">
+        <label>Gramas Compradas</label>
+        <input type="number" id="li-qtd-gramas" placeholder="Ex: 1000">
+    </div>
+    <div class="input-group">
+        <label>Para quem? (Opcional)</label>
+        <input type="text" id="li-destinatario" placeholder="Ex: João">
+    </div>
+</div>
+<button class="btn btn-save" style="margin-top: 10px;" onclick="adicionarNaLista()">Adicionar na Lista</button>
+            </div>
+            <div id="lista-compras-pendentes" class="list-container"></div>
+        </section>
+
+        <section id="screen-estoque" class="screen">
+            <div class="header-vendas">
+                <h2 class="section-title">📦 Estoque</h2>
+                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <button class="btn-report" style="background: var(--success);" onclick="showScreen('add')">➕ Novo</button>
+                    <button class="btn-report" style="background: #2980b9;" onclick="abrirPainelInventario()">📝 Inv.</button>
+                    <button class="btn-report" onclick="gerarRelatorioPDF()">📋 PDF</button>
+                </div>
+            </div>
+            <div class="search-box">
+                <input type="text" id="busca-estoque" placeholder="🔍 Pesquisar tempero..." onkeyup="listarEstoque()">
+            </div>
+            <div id="lista-estoque" class="list-container"></div>
+        </section>
+
+        <section id="screen-inventario" class="screen">
+            <h2 class="section-title">📝 Atualizar Inventário</h2>
+            <div class="card">
+                <div class="input-group">
+                    <label>Produto</label>
+                    <select id="inv-produto-select" class="custom-select"></select>
+                </div>
+              <div class="input-group">
+    <label>Nova Quantidade Real (em Gramas)</label>
+    <input type="number" id="inv-nova-qtd-gramas" placeholder="Ex: 500 para 0,5kg">
+</div>  
+                <button class="btn btn-save" onclick="salvarInventario()">💾 Atualizar Estoque</button>
+                <button class="btn btn-cancel" style="margin-top:10px" onclick="showScreen('estoque')">Voltar</button>
+            </div>
+        </section>
+
+        <section id="screen-vendas" class="screen">
+            <div class="header-vendas">
+                <h2 class="section-title">💰 Vendas</h2>
+                <button class="btn-action" onclick="abrirNovaVenda()">Nova Venda</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="busca-venda" placeholder="🔍 Cliente ou Data..." onkeyup="listarVendas()">
+            </div>
+            <div id="lista-vendas-realizadas" class="list-container"></div>
+        </section>
+
+        <section id="screen-nova-venda" class="screen">
+            <h2 class="section-title">🛒 Nova Venda</h2>
+            <div class="card">
+                <div class="input-group">
+                    <label>Nome do Cliente</label>
+                    <input type="text" id="v-cliente-nome" placeholder="Opcional">
+                </div>
+                <div class="cart-selector" style="background: #f9f9f9; padding: 10px; border-radius: 8px;">
+                    <label>Produto</label>
+                    <select id="v-produto-select" class="custom-select" style="margin-bottom: 10px;"></select>
+                    <div class="row">
+                        <input type="number" id="v-qtd" value="1" min="1" style="flex: 1;">
+                        
+                        <button class="btn btn-save" style="flex: 2;" onclick="adicionarAoCarrinho()">Adicionar</button>
+                    </div>
+                </div>
+                <div id="carrinho-itens" style="margin:20px 0; border-bottom: 1px dashed #ccc;"></div>
+                <div class="cart-total" style="display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 20px;">
+                    <span>Total:</span>
+                    <strong id="v-total-carrinho" style="color: var(--success);">R$ 0,00</strong>
+                </div>
+                <div class="input-group" style="margin-top: 15px;">
+    <label>Situação do Pagamento</label>
+    <select id="v-status-pagamento" class="custom-select">
+        <option value="pago" selected>✅ Pago </option>
+        <option value="devedor">⏳ Devedor </option>
+    </select>
+</div>
+                <button class="btn btn-save" onclick="finalizarVenda()">✅ Finalizar Venda</button>
+                <button class="btn btn-cancel" style="margin-top:10px" onclick="showScreen('vendas')">Cancelar</button>
+            </div>
+        </section>
+
+        <section id="screen-config" class="screen">
+            <h2 class="section-title">⚙️ Configurações</h2>
+            <div class="card">
+                <div class="input-group">
+                    <label>Preço de Venda Padrão (R$)</label>
+                    <input type="number" id="cfg-valor-fixo" step="0.01">
+                </div>
+                <button class="btn btn-save" onclick="salvarConfig()">Salvar Ajuste</button>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+                <label>📦 Gerenciar Dados</label>
+                <button class="btn" style="background: #34495e; color: white; margin-bottom: 10px; width: 100%;" onclick="exportarBackup()">📤 Exportar Backup (JSON)</button>
+                <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importarBackup(event)">
+                <button class="btn btn-cancel" style="width: 100%;" onclick="document.getElementById('import-file').click()">📂 Importar Backup</button>
+            </div>
+            <div class="card" id="area-admin-usuarios" style="margin-top:20px; border: 1px solid #2e7d32;">
+    <h3>👥 Cadastrar Novo Usuário</h3>
+    <input type="text" id="novo-user-login" placeholder="Nome do Usuário" style="width:100%; margin-bottom:10px; padding:8px;">
+    <input type="password" id="novo-user-senha" placeholder="Senha" style="width:100%; margin-bottom:10px; padding:8px;">
     
-    atualizarDash();
-};
+    <label>Permitir acesso às abas:</label>
+    <div style="text-align:left; margin:10px 0;">
+        <input type="checkbox" class="perm-check" value="dash"> Dashboard <br>
+        <input type="checkbox" class="perm-check" value="lista"> Entrada <br>
+        <input type="checkbox" class="perm-check" value="estoque"> Estoque <br>
+        <input type="checkbox" class="perm-check" value="vendas"> Vendas <br>
+        <input type="checkbox" class="perm-check" value="config"> Configurações
+    </div>
 
+    <button class="btn btn-save" onclick="prepararCadastro()">Salvar Novo Usuário</button>
+</div>
+    <button class="btn btn-save" onclick="prepararCadastro()">Salvar Novo Usuário</button>
+</div>
 
+<button class="btn btn-cancel" onclick="efetuarLogout()" style="margin-top:20px; width:100%;">Encerrar Sessão (Logout)</button>
+        </section>
+    </main>
 
-async // --- FUNÇÃO DE LOGIN DO ADMIN ---
-async function validarAdmin() {
-    const senha = document.getElementById('senhaAdmin').value;
-    
-    // Senha Mestra
-    if (senha === "Freego123@") {
-        // Define o objeto do utilizador com tipo ADMIN para permitir criar outros
-        usuarioLogado = { 
-            user: "Admin Principal", 
-            tipo: "admin", 
-            permissoes: ['dash', 'lista', 'estoque', 'vendas', 'config'] 
-        };
-        
-        // Guarda a sessão para não sair ao dar F5
-        localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
-        
-        document.getElementById('modalLogin').style.display = 'none';
-        
-        // Agora a função existe abaixo!
-        await carregarDadosReais(); 
-        
-        if(typeof notify === "function") notify("Admin", "Acesso total liberado", "success");
-    } else {
-        alert("Senha incorreta!");
-    }
-}
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="showScreen('dash', this)"><i>📊</i><span>Dash</span></button>
+        <button class="nav-item" onclick="showScreen('lista', this)"><i>📝</i><span>Entrada</span></button>
+        <button class="nav-item" onclick="showScreen('estoque', this)"><i>📦</i><span>Estoque</span></button>
+        <button class="nav-item" onclick="showScreen('vendas', this)"><i>💰</i><span>Vendas</span></button>
+        <button class="nav-item" onclick="showScreen('config', this)"><i>⚙️</i><span>Config</span></button>
+    </nav>
 
-// --- FUNÇÃO QUE BUSCA DADOS NO RENDER (BANCO ONLINE) ---
-async function carregarDadosReais() {
-    try {
-        const res = await fetch(`${API_URL}/data`); 
-        const data = await res.json();
-        
-        if (data) {
-            produtos = data.produtos || [];
-            vendas = data.vendas || [];
-            listaCompras = data.listaCompras || [];
-            configs = data.configs || { valorFixo: 0 };
-            
-            // Se o banco também trouxer a lista de utilizadores cadastrados
-            usuariosCadastrados = data.usuarios || [];
-
-            renderizarTudo();
-            console.log("Dados do MongoDB carregados com sucesso.");
-        }
-    } catch (e) {
-        console.error("Erro ao conectar com o banco online:", e);
-        // Fallback: tenta carregar do localStorage se o banco falhar
-        produtos = JSON.parse(localStorage.getItem('sp_prods')) || [];
-    }
-}
-function confirmarLoginVisita() {
-    usuarioLogado = "visita";
-    document.getElementById('modalLogin').style.display = 'none';
-    
-    // Alimenta as variáveis globais com os dados de exemplo
-    produtos = [...dadosFicticios.produtos];
-    vendas = [...dadosFicticios.vendas];
-    listaCompras = [...dadosFicticios.listaCompras];
-    configs = dadosFicticios.configs;
-
-    renderizarTudo(); // Chama a atualização da tela e do gráfico
-    bloquearFuncoesVisita();
-    
-    if(typeof notify === "function") notify("Modo Visita", "Dados de demonstração ativos.", "info");
-}
-function renderizarTudo() {
-    // Chama a função do gráfico que já existe no seu código
-    if (typeof atualizarDash === "function") atualizarDash(); 
-    
-    // Chama as listagens das tabelas
-    if (typeof listarEstoque === "function") listarEstoque();
-    if (typeof listarVendas === "function") listarVendas();
-}
-
-function bloquearFuncoesVisita() {
-    document.querySelectorAll('button, input').forEach(el => {
-        const txt = el.innerText ? el.innerText.toLowerCase() : "";
-        // Bloqueia se for input ou botões de ação crítica
-        if (el.tagName === "INPUT" || txt.includes("salvar") || txt.includes("excluir") || txt.includes("vender")) {
-            el.disabled = true;
-            el.style.opacity = '0.5';
-            el.style.cursor = 'not-allowed';
-        }
-    });
-}
-
-// --- FUNÇÕES DE NAVEGAÇÃO DO MODAL (LIGAM AOS BOTÕES DO INDEX.HTML) ---
-
-// 1. Mostra os campos de senha quando clica em "Acesso Administrador"
-function mostrarCamposAdmin() {
-    document.getElementById('loginOpcoes').style.display = 'none';
-    document.getElementById('msgVisita').style.display = 'none';
-    document.getElementById('loginAdminCampos').style.display = 'block';
-    document.getElementById('senhaAdmin').focus();
-}
-
-// 2. Volta para a tela inicial do modal
-function voltarOpcoes() {
-    document.getElementById('loginAdminCampos').style.display = 'none';
-    document.getElementById('loginOpcoes').style.display = 'block';
-    document.getElementById('msgVisita').style.display = 'none';
-}
-
-// 3. Mostra o aviso do modo visita
-function mostrarInfoVisita() {
-    document.getElementById('loginAdminCampos').style.display = 'none';
-    document.getElementById('loginOpcoes').style.display = 'none';
-    document.getElementById('msgVisita').style.display = 'block';
-}
-
-// 4. Valida a senha do Admin e carrega dados reais
-async function validarAdmin() {
-    const passIn = document.getElementById('senhaAdmin').value;
-
-    // 1. Verificação da Senha Mestra (Acesso Total Garantido)
-    if (passIn === "Freego123@") {
-        usuarioLogado = { user: "Admin", tipo: "admin", permissoes: ['dash', 'lista', 'estoque', 'vendas', 'config'] };
-        
-        // Salva no navegador para não precisar logar de novo ao dar F5
-        localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
-        
-        document.getElementById('modalLogin').style.display = 'none';
-        
-        // Carrega os dados reais do Render
-        if (typeof carregarDadosReais === "function") await carregarDadosReais();
-        
-        notify("Bem-vindo", "Acesso Administrador liberado", "success");
-        return; // Para a execução aqui pois já logou
-    }
-
-    // 2. Se não for a senha mestra, tenta procurar utilizadores cadastrados no banco
-    try {
-        const res = await fetch(`${API_URL}/usuarios`); // Rota que busca utilizadores no banco
-        const usuarios = await res.json();
-        
-        const userEncontrado = usuarios.find(u => u.pass === passIn);
-
-        if (userEncontrado) {
-            usuarioLogado = userEncontrado;
-            localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
-            document.getElementById('modalLogin').style.display = 'none';
-            
-            await carregarDadosReais();
-            
-            if (usuarioLogado.tipo === "restrito") {
-                aplicarRestricoes(usuarioLogado.permissoes);
-            }
-            
-            notify("Olá", `Bem-vindo, ${usuarioLogado.user}`, "success");
-        } else {
-            alert("Acesso negado: Senha incorreta.");
-        }
-    } catch (e) {
-        console.error("Erro ao validar no banco:", e);
-        alert("Acesso negado: Senha incorreta ou erro de conexão.");
-    }
-}
-async function confirmarLoginVisita() {
-    // 1. Dados de Backup (Caso o arquivo JSON falhe, o sistema usa estes)
-    const dadosDeSeguranca = {
-        "produtos": [
-            { "id": 501, "nome": "Pimenta (Exemplo)", "custo": 80, "gramas": 50, "venda": 6.5, "estoque": 45 },
-            { "id": 502, "nome": "Edu Guedes (Exemplo)", "custo": 35, "gramas": 100, "venda": 7.5, "estoque": 20 }
-        ],
-        "vendas": [
-            { "id": 901, "cliente": "Venda Paga", "total": 45.50, "status": "pago", "dataISO": new Date().toISOString(), "itens": [] },
-            { "id": 902, "cliente": "Venda Devedora", "total": 15.00, "status": "devedor", "dataISO": new Date().toISOString(), "itens": [] }
-        ],
-        "listaCompras": [],
-        "configs": { "valorFixo": 3.5 }
-    };
-
-    try {
-        // Tenta carregar o arquivo externo
-        const response = await fetch('dados_visita.json');
-        
-        if (!response.ok) throw new Error("Arquivo não encontrado");
-
-        const dadosJson = await response.json();
-        produtos = dadosJson.produtos;
-        vendas = dadosJson.vendas;
-        listaCompras = dadosJson.listaCompras || [];
-        configs = dadosJson.configs || { valorFixo: 3.5 };
-        console.log("Dados carregados via JSON externo.");
-
-    } catch (error) {
-        // Se der erro (como o que aconteceu), ele usa os dados acima automaticamente
-        console.warn("Usando dados de demonstração internos (Plano B).");
-        produtos = dadosDeSeguranca.produtos;
-        vendas = dadosDeSeguranca.vendas;
-        listaCompras = dadosDeSeguranca.listaCompras;
-        configs = dadosDeSeguranca.configs;
-    }
-
-    // Fecha o modal e libera a tela
-    usuarioLogado = "visita";
-    document.getElementById('modalLogin').style.display = 'none';
-
-    // Atualiza os gráficos e tabelas com os nomes das funções que já existem no seu script
-    if (typeof atualizarDash === "function") atualizarDash(); 
-    if (typeof listarEstoque === "function") listarEstoque();
-    if (typeof listarVendas === "function") listarVendas();
-    
-    // Bloqueia botões de salvar/excluir
-    if (typeof bloquearFuncoesVisita === "function") bloquearFuncoesVisita();
-
-    if (typeof notify === "function") {
-        notify("Modo Visita", "Dados de demonstração carregados com sucesso.", "info");
-    }
-}
-async function cadastrarNovoUsuario(nome, senha, permissoes) {
-    if (usuarioLogado.tipo !== 'admin') return alert("Acesso negado");
-
-    const novoUsuario = {
-        user: nome.toLowerCase().trim(),
-        pass: senha,
-        tipo: "restrito",
-        permissoes: permissoes // Ex: ['dash', 'vendas']
-    };
-
-    try {
-        // Enviando para a sua rota de salvamento no Render
-        const res = await fetch(`${API_URL}/save-user`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(novoUsuario)
-        });
-
-        if (res.ok) {
-            notify("Sucesso", "Usuário cadastrado no banco online!", "success");
-        }
-    } catch (e) {
-        console.error("Erro ao salvar usuário:", e);
-    }
-}
-
-function aplicarRestricoes(permissoes) {
-    // Mapeamento dos botões da nav
-    const botoesNav = document.querySelectorAll('.nav-item');
-    
-    botoesNav.forEach(btn => {
-        // Pega o nome da tela no onclick, ex: showScreen('estoque', this) -> 'estoque'
-        const telaNome = btn.getAttribute('onclick').split("'")[1];
-        
-        if (!permissoes.includes(telaNome)) {
-            btn.style.display = 'none'; // Esconde a aba se não tiver permissão
-        }
-    });
-    
-    // Redireciona para a primeira tela permitida
-    showScreen(permissoes[0], botoesNav[0]);
-}
-function prepararCadastro() {
-    const nome = document.getElementById('novo-user-nome').value;
-    const senha = document.getElementById('novo-user-senha').value;
-    const checks = document.querySelectorAll('.perm-check:checked');
-    const permissoes = Array.from(checks).map(c => c.value);
-
-    if (nome && senha && permissoes.length > 0) {
-        cadastrarNovoUsuario(nome, senha, permissoes);
-    } else {
-        alert("Preencha nome, senha e ao menos uma permissão!");
-    }
-}
-window.onload = () => {
-    const sessaoSalva = localStorage.getItem('sessao_jirineu');
-    
-    if (sessaoSalva) {
-        usuarioLogado = JSON.parse(sessaoSalva);
-        document.getElementById('modalLogin').style.display = 'none';
-        
-        carregarDadosReais().then(() => {
-            if (usuarioLogado.tipo === "restrito") {
-                aplicarRestricoes(usuarioLogado.permissoes);
-            }
-        });
-    } else {
-        console.log("Nenhum utilizador logado. Aguardando...");
-    }
-};
-function efetuarLogout() {
-    localStorage.removeItem('sessao_jirineu');
-    location.reload(); // Recarrega a página e o Modal de login aparecerá
-}
-// --- FUNÇÃO PARA CARREGAR DADOS (ADMIN) ---
-async function carregarDadosReais() {
-    try {
-        const res = await fetch(`${API_URL}/data`);
-        const data = await res.json();
-        if (data) {
-            produtos = data.produtos || [];
-            vendas = data.vendas || [];
-            // Aqui carregamos também os utilizadores do banco para conferência
-            usuariosCadastrados = data.usuarios || []; 
-            renderizarTudo();
-        }
-    } catch (e) {
-        console.error("Erro ao carregar dados:", e);
-    }
-}
-
-// --- FUNÇÃO PARA CRIAR UTILIZADOR (CHAMADA PELO BOTÃO) ---
-async function cadastrarNovoUsuario() {
-    // 1. Verifica se quem está logado é ADMIN (apenas o Super Admin pode criar)
-    if (usuarioLogado.tipo !== 'admin') {
-        alert("Acesso negado: Apenas o Administrador Principal pode criar contas.");
-        return;
-    }
-
-    const nome = document.getElementById('novo-user-nome').value;
-    const senha = document.getElementById('novo-user-senha').value;
-    const checks = document.querySelectorAll('.perm-check:checked');
-    const permissoes = Array.from(checks).map(c => c.value);
-
-    if (!nome || !senha || permissoes.length === 0) {
-        alert("Preencha o nome, senha e escolha as permissões!");
-        return;
-    }
-
-    const novoUser = {
-        user: nome.toLowerCase().trim(),
-        pass: senha,
-        tipo: "restrito",
-        permissoes: permissoes
-    };
-
-    try {
-        const res = await fetch(`${API_URL}/save-user`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(novoUser)
-        });
-
-        if (res.status === 200) {
-            alert("Utilizador cadastrado com sucesso no banco online!");
-            location.reload(); // Recarrega para limpar e atualizar
-        } else {
-            const msg = await res.json();
-            alert("Erro: " + msg.message);
-        }
-    } catch (e) {
-        alert("Erro 404: A rota não foi encontrada no servidor.");
-    }
-}
-// Mostra os inputs de login
-function mostrarCamposAdmin() {
-    document.getElementById('loginOpcoes').style.display = 'none';
-    document.getElementById('loginAdminCampos').style.display = 'block';
-    document.getElementById('userLogin').focus();
-}
-
-// Volta para os botões de Admin/Visita
-function voltarOpcoes() {
-    document.getElementById('loginAdminCampos').style.display = 'none';
-    document.getElementById('loginOpcoes').style.display = 'block';
-}
-
-// A sua função validarAdmin deve ser atualizada para ler também o campo 'userLogin'
-async function validarAdmin() {
-    const usuarioDigitado = document.getElementById('userLogin').value.toLowerCase().trim();
-    const senhaDigitada = document.getElementById('senhaAdmin').value;
-
-    // 1. Atalho para Super Admin
-    if (senhaDigitada === "Freego123@" && (usuarioDigitado === "admin" || usuarioDigitado === "")) {
-        usuarioLogado = { user: "Admin", tipo: "admin", permissoes: ['dash', 'lista', 'estoque', 'vendas', 'config'] };
-        finalizarLogin();
-        return;
-    }
-
-    // 2. Busca no banco de dados para outros utilizadores
-    try {
-        const res = await fetch(`${API_URL}/usuarios`);
-        const usuarios = await res.json();
-        const encontrado = usuarios.find(u => u.user === usuarioDigitado && u.pass === senhaDigitada);
-
-        if (encontrado) {
-            usuarioLogado = encontrado;
-            finalizarLogin();
-        } else {
-            alert("Utilizador ou senha incorretos.");
-        }
-    } catch (e) {
-        alert("Erro ao conectar com o servidor.");
-    }
-}
-
-function finalizarLogin() {
-    localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
-    document.getElementById('modalLogin').style.display = 'none';
-    carregarDadosReais();
-    if (usuarioLogado.tipo === "restrito") aplicarRestricoes(usuarioLogado.permissoes);
-}
+    <script src="script.js"></script>
+</body>
+</html>
