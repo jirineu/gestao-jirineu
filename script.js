@@ -989,26 +989,34 @@ function aplicarRestricoes(permissoes) {
     showScreen(permissoes[0], botoesNav[0]);
 }
 function prepararCadastro() {
-    // 1. Capturamos os elementos primeiro
-    const campoLogin = document.getElementById('novo-user-login');
-    const campoSenha = document.getElementById('novo-user-senha');
-
-    // 2. Verificamos se eles existem antes de pedir o '.value'
-    if (!campoLogin || !campoSenha) {
-        console.error("ERRO: IDs 'novo-user-login' ou 'novo-user-senha' não encontrados no HTML!");
-        return;
-    }
-
-    const nome = campoLogin.value;
-    const senha = campoSenha.value;
+    const nome = document.getElementById('novo-user-login').value;
+    const senha = document.getElementById('novo-user-senha').value;
     const checks = document.querySelectorAll('.perm-check:checked');
     const permissoes = Array.from(checks).map(c => c.value);
 
-    if (nome.trim() && senha.trim() && permissoes.length > 0) {
-        cadastrarNovoUsuario(nome, senha, permissoes);
-    } else {
-        Swal.fire("Atenção", "Preencha o nome, a senha e selecione pelo menos uma permissão!", "warning");
+    // Validação com alerta educativo
+    if (!nome.trim() || !senha.trim()) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campos Incompletos',
+            text: 'Por favor, digite um nome de utilizador e uma senha para continuar.',
+            confirmButtonColor: '#e67e22'
+        });
+        return;
     }
+
+    if (permissoes.length === 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Defina as Permissões',
+            text: 'Um novo utilizador precisa de acesso a pelo menos uma aba do sistema.',
+            confirmButtonColor: '#e67e22'
+        });
+        return;
+    }
+
+    // Se passou nas validações, chama o envio
+    cadastrarNovoUsuario(nome, senha, permissoes);
 }
 window.onload = () => {
     const sessaoSalva = localStorage.getItem('sessao_jirineu');
@@ -1048,49 +1056,64 @@ async function carregarDadosReais() {
 }
 
 // --- FUNÇÃO PARA CRIAR UTILIZADOR (CHAMADA PELO BOTÃO) ---
-async function cadastrarNovoUsuario() {
-    // 1. Verifica se quem está logado é ADMIN (apenas o Super Admin pode criar)
-    if (usuarioLogado.tipo !== 'admin') {
-        alert("Acesso negado: Apenas o Administrador Principal pode criar contas.");
-        return;
-    }
-
-    const nome = document.getElementById('novo-user-nome').value;
-    const senha = document.getElementById('novo-user-senha').value;
-    const checks = document.querySelectorAll('.perm-check:checked');
-    const permissoes = Array.from(checks).map(c => c.value);
-
-    if (!nome || !senha || permissoes.length === 0) {
-        alert("Preencha o nome, senha e escolha as permissões!");
-        return;
-    }
-
-    const novoUser = {
-        user: nome.toLowerCase().trim(),
-        pass: senha,
-        tipo: "restrito",
-        permissoes: permissoes
-    };
+async function cadastrarNovoUsuario(nome, senha, permissoes) {
+    // Exibe um alerta de "Carregando" para dar feedback ao usuário
+    Swal.fire({
+        title: 'A guardar...',
+        text: 'A registar o novo utilizador no banco de dados.',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
 
     try {
-        const res = await fetch(`${API_URL}/save-user`, {
+        const dadosParaEnviar = {
+            user: nome,
+            pass: senha,
+            tipo: "restrito",
+            permissoes: permissoes
+        };
+
+        const response = await fetch(`${API_URL}/save-user`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(novoUser)
+            body: JSON.stringify(dadosParaEnviar)
         });
 
-        if (res.status === 200) {
-            alert("Utilizador cadastrado com sucesso no banco online!");
-            location.reload(); // Recarrega para limpar e atualizar
+        const resultado = await response.json();
+
+        if (response.ok) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Utilizador Criado!',
+                text: `O acesso para "${nome}" foi configurado com sucesso.`,
+                timer: 3000,
+                showConfirmButton: false
+            });
+            
+            // Limpeza de campos
+            document.getElementById('novo-user-login').value = "";
+            document.getElementById('novo-user-senha').value = "";
+            document.querySelectorAll('.perm-check').forEach(c => c.checked = false);
         } else {
-            const msg = await res.json();
-            alert("Erro: " + msg.message);
+            // Caso o servidor responda erro (ex: Usuário já existe)
+            Swal.fire({
+                icon: 'error',
+                title: 'Não foi possível salvar',
+                text: resultado.message || 'Ocorreu um erro inesperado.',
+                confirmButtonColor: '#d33'
+            });
         }
-    } catch (e) {
-        alert("Erro 404: A rota não foi encontrada no servidor.");
+
+    } catch (error) {
+        console.error("Erro na comunicação:", error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Falha na Conexão',
+            text: 'Não conseguimos contactar o servidor. Verifique a sua internet ou se o backend está online.',
+            confirmButtonColor: '#d33'
+        });
     }
 }
-
 // Mostra os inputs de login
 function mostrarCamposAdmin() {
     document.getElementById('loginOpcoes').style.display = 'none';
