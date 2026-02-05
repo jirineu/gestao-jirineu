@@ -9,7 +9,6 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 // --- CONFIGURAÇÃO DO MONGODB ---
-// Usando a sua senha: Freego123
 const dbUser = "admin_jirineu";
 const dbPass = "Freego123";
 const dbName = "jirineu_vendas";
@@ -17,126 +16,106 @@ const clusterUrl = "cluster0.cqkouvg.mongodb.net";
 
 const MONGO_URI = `mongodb+srv://${dbUser}:${dbPass}@${clusterUrl}/${dbName}?retryWrites=true&w=majority&appName=Cluster0`;
 
-// Conectando ao Banco de Dados na Nuvem
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ Conectado ao MongoDB Atlas (Nuvem) com sucesso!"))
     .catch(err => {
-        console.error("❌ Erro fatal ao conectar ao MongoDB:");
-        console.error(err.message);
+        console.error("❌ Erro fatal ao conectar ao MongoDB:", err.message);
     });
 
-// --- DEFINIÇÃO DO MODELO DE DADOS ---
-// Isso organiza como as informações serão salvas no banco
+// --- DEFINIÇÃO DOS MODELOS DE DADOS ---
+
+// 1. Modelo para Dados Gerais (Produtos, Vendas, etc)
 const AppDataSchema = new mongoose.Schema({
-    chave: { type: String, default: "principal" }, // Identificador único para seus dados
+    chave: { type: String, default: "principal" },
     produtos: { type: Array, default: [] },
     vendas: { type: Array, default: [] },
-    configs: { type: Object, default: { valorFixo: 0 } },
-    listaCompras: { type: Array, default: [] }
-}, { timestamps: true });
-
+    listaCompras: { type: Array, default: [] },
+    config: { type: Object, default: {} },
+    lastUpdate: { type: Date, default: Date.now }
+});
 const AppData = mongoose.model('AppData', AppDataSchema);
+
+// 2. Modelo para Usuários (Isso cria a "tabela" de usuários automaticamente)
+const UsuarioSchema = new mongoose.Schema({
+    user: { type: String, required: true, unique: true },
+    pass: { type: String, required: true },
+    tipo: { type: String, default: "restrito" },
+    permissoes: { type: Array, default: [] },
+    criadoEm: { type: Date, default: Date.now }
+});
+const Usuario = mongoose.model('Usuario', UsuarioSchema);
+
 
 // --- ROTAS DA API ---
 
-// Rota para buscar os dados (GET)
+// ROTA: Buscar dados gerais
 app.get('/api/data', async (req, res) => {
     try {
-        const data = await AppData.findOne({ chave: "principal" });
-        // Se o banco estiver vazio, retorna um objeto com arrays vazios
+        let data = await AppData.findOne({ chave: "principal" });
         if (!data) {
-            return res.json({ produtos: [], vendas: [], configs: { valorFixo: 0 }, listaCompras: [] });
+            data = new AppData({ chave: "principal" });
+            await data.save();
         }
         res.json(data);
     } catch (err) {
-        res.status(500).json({ error: "Erro ao buscar dados do servidor" });
+        res.status(500).send("Erro ao buscar dados");
     }
 });
 
-// Rota para salvar os dados (POST)
+// ROTA: Salvar dados gerais (Produtos/Vendas)
 app.post('/api/save', async (req, res) => {
     try {
-        const { produtos, vendas, configs, listaCompras } = req.body;
-        
-        // O findOneAndUpdate procura a 'chave: principal' e atualiza os dados. 
-        // Se não existir (primeira vez), o 'upsert: true' cria o registro.
+        const { produtos, vendas, listaCompras, config } = req.body;
         await AppData.findOneAndUpdate(
             { chave: "principal" },
-            { produtos, vendas, configs, listaCompras },
-            { upsert: true, new: true }
+            { produtos, vendas, listaCompras, config, lastUpdate: new Date() },
+            { upsert: true }
         );
-        
-        res.json({ status: "success", message: "Dados sincronizados na nuvem!" });
+        res.status(200).send("Dados sincronizados com sucesso!");
     } catch (err) {
-        console.error("Erro ao salvar:", err);
-        res.status(500).json({ status: "error", message: err.message });
+        res.status(500).send("Erro ao salvar dados");
     }
 });
 
-// --- INICIALIZAÇÃO DO SERVIDOR ---
-// A porta será definida pelo servidor online (process.env.PORT) ou será a 3000 localmente
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando.`);
-    console.log(`📍 Local: http://localhost:${PORT}`);
+// ROTA: Listar todos os usuários (Usado no Login)
+app.get('/api/usuarios', async (req, res) => {
+    try {
+        const usuarios = await Usuario.find();
+        res.json(usuarios);
+    } catch (err) {
+        res.status(500).json({ message: "Erro ao buscar usuários" });
+    }
 });
-// Rota para salvar novos utilizadores (POST)
+
+// ROTA: Criar Novo Usuário
 app.post('/api/save-user', async (req, res) => {
     try {
-        // 1. Conectar ao banco de dados (ajuste o nome do DB para o seu)
-        const db = client.db("seu_nome_do_banco");
-        const usuariosColl = db.collection("usuarios");
-
-        // 2. Receber os dados enviados pelo front-end
         const { user, pass, tipo, permissoes } = req.body;
 
-        // 3. Validação básica: verificar se o utilizador já existe
-        const usuarioExistente = await usuariosColl.findOne({ user: user.toLowerCase() });
-        if (usuarioExistente) {
-            return res.status(400).json({ message: "Este nome de utilizador já existe!" });
+        // Verifica se o usuário já existe
+        const existe = await Usuario.findOne({ user: user.toLowerCase().trim() });
+        if (existe) {
+            return res.status(400).json({ message: "Este utilizador já existe!" });
         }
 
-        // 4. Preparar o documento para inserir no MongoDB
-        const novoUsuario = {
-            user: user.toLowerCase(),
-            pass: pass, // Nota: Em produção, o ideal é usar bcrypt para criptografar
-            tipo: tipo,
-            permissoes: permissoes,
-            criadoEm: new Date()
-        };
+        const novoUsuario = new Usuario({
+            user: user.toLowerCase().trim(),
+            pass: pass,
+            tipo: tipo || "restrito",
+            permissoes: permissoes || []
+        });
 
-        // 5. Inserir no banco de dados
-        await usuariosColl.insertOne(novoUsuario);
-
-        // 6. Responder com sucesso
+        await novoUsuario.save();
         res.status(200).json({ message: "Utilizador criado com sucesso!" });
 
     } catch (error) {
         console.error("Erro ao salvar utilizador:", error);
-        res.status(500).json({ message: "Erro interno no servidor ao salvar utilizador." });
-    }
-});
-// Rota para buscar todos os usuários (necessária para validar login de terceiros)
-app.get('/api/usuarios', async (req, res) => {
-    try {
-        const db = client.db("SEU_BANCO_DE_DADOS");
-        const users = await db.collection("usuarios").find().toArray();
-        res.json(users);
-    } catch (e) {
-        res.status(500).send("Erro ao buscar usuários");
+        res.status(500).json({ message: "Erro interno ao salvar no banco." });
     }
 });
 
-// Rota para salvar novo usuário
-app.post('/api/save-user', async (req, res) => {
-    try {
-        const db = client.db("SEU_BANCO_DE_DADOS");
-        const novoUser = req.body;
-        
-        // Insere no banco MongoDB
-        await db.collection("usuarios").insertOne(novoUser);
-        res.status(200).send("Criado com sucesso");
-    } catch (e) {
-        res.status(500).send("Erro ao salvar");
-    }
+// Inicialização do Servidor
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🚀 Servidor a rodar na porta ${PORT}`);
 });
