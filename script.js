@@ -1,3 +1,6 @@
+const API_URL = window.location.hostname === 'localhost' 
+   ? "http://localhost:3000/api" 
+   : "https://gestao-jirineu.onrender.com/api";
 // No topo do script.js
 let usuarioLogado = null; // Inicia vazio
 
@@ -46,9 +49,7 @@ function aplicarRestricoes(permissoes) {
     }
 }
 
-const API_URL = window.location.hostname === 'localhost' 
-   ? "http://localhost:3000/api" 
-   : "https://gestao-jirineu.onrender.com/api";
+
    
 
 // DADOS DE BACKUP INTEGRADOS (CUSTO KG) - MANTIDOS ORIGINAIS
@@ -933,31 +934,44 @@ async function confirmarLoginVisita() {
     }
 }
 async function cadastrarNovoUsuario(nome, senha, permissoes) {
-    if (usuarioLogado.tipo !== 'admin') return alert("Acesso negado");
-
-    const novoUsuario = {
-        user: nome.toLowerCase().trim(),
-        pass: senha,
-        tipo: "restrito",
-        permissoes: permissoes // Ex: ['dash', 'vendas']
-    };
-
     try {
-        // Enviando para a sua rota de salvamento no Render
-        const res = await fetch(`${API_URL}/save-user`, {
+        // Objeto com os dados para o servidor
+        const dadosParaEnviar = {
+            user: nome,
+            pass: senha,
+            tipo: "restrito",
+            permissoes: permissoes
+        };
+
+        // Faz a chamada para o servidor (Render)
+        const response = await fetch(`${API_URL}/save-user`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(novoUsuario)
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(dadosParaEnviar)
         });
 
-        if (res.ok) {
-            notify("Sucesso", "Usuário cadastrado no banco online!", "success");
+        // Tenta ler a resposta do servidor
+        const resultado = await response.json();
+
+        if (response.ok) {
+            Swal.fire("Sucesso!", "Utilizador criado com sucesso no banco de dados!", "success");
+            
+            // Limpa os campos após o sucesso
+            document.getElementById('novo-user-login').value = "";
+            document.getElementById('novo-user-senha').value = "";
+            document.querySelectorAll('.perm-check').forEach(c => c.checked = false);
+        } else {
+            // Se o servidor retornar erro (ex: utilizador já existe)
+            Swal.fire("Erro", resultado.message || "Erro ao salvar", "error");
         }
-    } catch (e) {
-        console.error("Erro ao salvar usuário:", e);
+
+    } catch (error) {
+        console.error("Erro na comunicação com o servidor:", error);
+        Swal.fire("Erro de Conexão", "Não foi possível contactar o servidor. Verifique se o backend está online.", "error");
     }
 }
-
 function aplicarRestricoes(permissoes) {
     // Mapeamento dos botões da nav
     const botoesNav = document.querySelectorAll('.nav-item');
@@ -975,16 +989,19 @@ function aplicarRestricoes(permissoes) {
     showScreen(permissoes[0], botoesNav[0]);
 }
 function prepararCadastro() {
-    // Aqui alteramos para 'novo-user-login', que é o ID que está no seu HTML
-    const nome = document.getElementById('novo-user-login').value; 
+    // Captura os valores dos campos
+    const nome = document.getElementById('novo-user-login').value;
     const senha = document.getElementById('novo-user-senha').value;
+    
+    // Captura as permissões marcadas
     const checks = document.querySelectorAll('.perm-check:checked');
     const permissoes = Array.from(checks).map(c => c.value);
 
-    if (nome && senha && permissoes.length > 0) {
+    // Validação simples
+    if (nome.trim() && senha.trim() && permissoes.length > 0) {
         cadastrarNovoUsuario(nome, senha, permissoes);
     } else {
-        Swal.fire("Erro", "Preencha todos os campos!", "error");
+        Swal.fire("Atenção", "Preencha o nome, a senha e selecione pelo menos uma permissão!", "warning");
     }
 }
 window.onload = () => {
