@@ -138,124 +138,54 @@ function notify(title, text, icon) {
     Swal.fire({ title, text, icon, confirmButtonColor: '#e67e22' });
 }
 
-// 1. Corrigir a navegação para abrir a área admin
 function showScreen(id, btn) {
+    // 1. Esconde todas as telas e remove destaques do menu
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     
-    // Aceita 'config' ou 'configs' e ativa a tela certa
-    const realId = (id === 'config' || id === 'configs') ? 'screen-config' : 'screen-' + id;
-    const target = document.getElementById(realId);
-    if(target) target.classList.add('active');
+    // 2. Localiza a tela correta (ajustado para aceitar config ou configs)
+    const realId = (id === 'configs' || id === 'config') ? 'screen-config' : 'screen-' + id;
+    const targetScreen = document.getElementById(realId);
     
+    if (targetScreen) {
+        targetScreen.classList.add('active');
+    }
+    
+    // 3. Destaca o botão no menu inferior
     if(!btn) {
+        // Mapeamos os dois nomes possíveis para a engrenagem (índice 4)
         const map = { 'dash':0, 'lista':1, 'estoque':2, 'vendas':3, 'config':4, 'configs':4 };
         btn = document.querySelectorAll('.nav-item')[map[id]];
     }
     if(btn) btn.classList.add('active');
 
+    // 4. Gatilhos de carregamento
+    if(id === 'add') aplicarPrecoPadrao();
+    if(id === 'estoque') listarEstoque();
+    if(id === 'vendas') listarVendas();
+    if(id === 'dash') atualizarDash();
+    if(id === 'lista') abrirListaCompras();
+
+    // 5. Lógica da tela de CONFIGURAÇÕES
     if(id === 'config' || id === 'configs') {
-        document.getElementById('cfg-valor-fixo').value = configs.valorFixo || 0;
-        
-        // MOSTRAR ADMIN SE FOR ADMIN
+        // Preenche o valor do lucro/preço fixo
+        if (configs) document.getElementById('cfg-valor-fixo').value = configs.valorFixo || 0;
+
+        // GESTÃO DE USUÁRIOS
         const areaAdmin = document.getElementById('area-admin-usuarios');
         if (usuarioLogado && usuarioLogado.tipo === 'admin') {
-            areaAdmin.style.display = 'block';
-            renderizarGestaoUsuarios();
-        } else {
-            areaAdmin.style.display = 'none';
-        }
-    }
-    // ... outros ifs (dash, estoque, etc)
-}
-
-// 2. Função para SALVAR o novo usuário
-async function salvarNovoUsuario() {
-    const user = document.getElementById('new-user-name').value.trim();
-    const pass = document.getElementById('new-user-pass').value.trim();
-    const checks = document.querySelectorAll('.perm-check:checked');
-    const permissoes = Array.from(checks).map(c => c.value);
-
-    if (!user || !pass) return Swal.fire("Erro", "Preencha nome e senha", "error");
-
-    try {
-        const res = await fetch(`${API_URL}/save-user`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user, pass, tipo: 'restrito', permissoes })
-        });
-
-        if (res.ok) {
-            Swal.fire("Sucesso", "Usuário cadastrado!", "success");
-            document.getElementById('new-user-name').value = '';
-            document.getElementById('new-user-pass').value = '';
-            document.querySelectorAll('.perm-check').forEach(c => c.checked = false);
-            renderizarGestaoUsuarios();
-        } else {
-            const data = await res.json();
-            Swal.fire("Erro", data.message, "error");
-        }
-    } catch (e) {
-        Swal.fire("Erro", "Falha ao conectar ao servidor", "error");
-    }
-}
-
-// 3. Função para EXCLUIR (Corrigida)
-async function deletarUsuario(id) {
-    const confirmacao = await Swal.fire({
-        title: 'Excluir usuário?',
-        text: "O acesso deste usuário será revogado imediatamente!",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        confirmButtonText: 'Sim, excluir!',
-        cancelButtonText: 'Cancelar'
-    });
-
-    if (confirmacao.isConfirmed) {
-        try {
-            const res = await fetch(`${API_URL}/usuarios/${id}`, {
-                method: 'DELETE'
-            });
-
-            if (res.ok) {
-                Swal.fire("Sucesso", "Usuário removido.", "success");
-                renderizarGestaoUsuarios(); // Atualiza a lista na tela
-            } else {
-                Swal.fire("Erro", "Não foi possível excluir.", "error");
+            if (areaAdmin) {
+                areaAdmin.style.display = 'block'; // Garante que a div fique visível
+                renderizarGestaoUsuarios(); // Chama a sua função que busca os usuários
             }
-        } catch (e) {
-            console.error(e);
-            Swal.fire("Erro", "Falha de conexão com o servidor.", "error");
+        } else {
+            if (areaAdmin) areaAdmin.style.display = 'none';
         }
     }
-}
 
-async function salvarNovoUsuario() {
-    const user = document.getElementById('new-user-name').value;
-    const pass = document.getElementById('new-user-pass').value;
-    const checks = document.querySelectorAll('.perm-check:checked');
-    const permissoes = Array.from(checks).map(c => c.value);
-
-    if (!user || !pass) return Swal.fire("Erro", "Nome e senha obrigatórios", "warning");
-
-    try {
-        const res = await fetch(`${API_URL}/save-user`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user, pass, tipo: 'restrito', permissoes })
-        });
-
-        if (res.ok) {
-            Swal.fire("Sucesso", "Usuário criado!", "success");
-            // Limpa os campos
-            document.getElementById('new-user-name').value = '';
-            document.getElementById('new-user-pass').value = '';
-            document.querySelectorAll('.perm-check').forEach(c => c.checked = false);
-            renderizarGestaoUsuarios();
-        }
-    } catch (e) {
-        Swal.fire("Erro", "Falha ao salvar usuário.", "error");
+    // Trava de visitantes
+    if (usuarioLogado && usuarioLogado.isGuest) {
+        setTimeout(() => { bloquearFuncoesVisita(); }, 100);
     }
 }
 // --- CONFIGURAÇÕES ---
@@ -335,33 +265,39 @@ function renderizarLista() {
         return;
     }
 
-    listaCompras.forEach(i => {
-        const infoDestinatario = i.destinatario ? `<br><small style="color:#e67e22;">👤 Para: ${i.destinatario}</small>` : "";
-        
-        const itemRow = document.createElement('div');
-        itemRow.className = 'item-row';
-        itemRow.style.cssText = `
-            display: flex; justify-content: space-between; align-items: center;
-            background: white; margin-bottom: 10px; padding: 15px;
-            border-radius: 12px; border-left: 5px solid #e67e22;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        `;
+   listaCompras.forEach((i, index) => { // Adicionei o 'index' aqui para facilitar
+    const infoDestinatario = i.destinatario ? `<br><small style="color:#e67e22;">👤 Para: ${i.destinatario}</small>` : "";
+    
+    const itemRow = document.createElement('div');
+    itemRow.className = 'item-row';
+    itemRow.style.cssText = `
+        display: flex; justify-content: space-between; align-items: center;
+        background: white; margin-bottom: 10px; padding: 15px;
+        border-radius: 12px; border-left: 5px solid #e67e22;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    `;
 
-        itemRow.innerHTML = `
-            <div style="flex: 1;">
-                <div style="color: #2c3e50; font-weight: bold; font-size: 1.1rem;">${i.nome}</div>
-                <div style="color: #7f8c8d; font-size: 0.9rem;">
-                    ${i.gramasPedidas}g → <b>${i.qtdUnidades.toFixed(2)} potes</b>
-                    ${infoDestinatario}
-                </div>
+    itemRow.innerHTML = `
+        <div style="flex: 1;">
+            <div style="color: #2c3e50; font-weight: bold; font-size: 1.1rem;">${i.nome}</div>
+            
+            <div style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+                <button class="btn-mini" style="background:#bdc3c7; width:25px; height:25px; padding:0; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="ajustarQtdLista(${index}, -0.5)">-</button>
+                <span style="font-weight:bold; color:#2c3e50; min-width:60px; text-align:center;">${i.qtdUnidades.toFixed(2)} potes</span>
+                <button class="btn-mini" style="background:#bdc3c7; width:25px; height:25px; padding:0; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="ajustarQtdLista(${index}, 0.5)">+</button>
             </div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn-mini" style="background:#27ae60; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="confirmarCompra(${i.idLista})">✅</button>
-                <button class="btn-mini" style="background:#e74c3c; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="removerLista(${i.idLista})">✕</button>
+
+            <div style="color: #7f8c8d; font-size: 0.8rem;">
+                ${i.gramasPedidas}g total ${infoDestinatario}
             </div>
-        `;
-        cont.appendChild(itemRow);
-    });
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-mini" style="background:#27ae60; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="confirmarCompra(${i.idLista})">✅</button>
+            <button class="btn-mini" style="background:#e74c3c; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="removerLista(${i.idLista})">✕</button>
+        </div>
+    `;
+    cont.appendChild(itemRow);
+});
 }
 
 // Certifique-se de que estas funções auxiliares também existam:
@@ -387,31 +323,35 @@ function renderizarLista() {
         return;
     }
 
-    listaCompras.forEach(i => {
-        // PROTEÇÃO: Garante que qtdUnidades seja um número
-        const unidades = parseFloat(i.qtdUnidades) || 0;
-        const gramas = i.gramasPedidas || 0;
-        
-        const infoDestinatario = i.destinatario ? `<br><small style="color:#e67e22;">👤 Para: ${i.destinatario}</small>` : "";
-        
-        const itemRow = document.createElement('div');
-        itemRow.className = 'item-row';
-        itemRow.style.cssText = `display: flex; justify-content: space-between; align-items: center; background: white; margin-bottom: 10px; padding: 15px; border-radius: 12px; border-left: 5px solid #e67e22; box-shadow: 0 2px 5px rgba(0,0,0,0.05);`;
-
-        itemRow.innerHTML = `
-            <div style="flex: 1;">
-                <div style="color: #2c3e50; font-weight: bold; font-size: 1.1rem;">${i.nome}</div>
-                <div style="color: #7f8c8d; font-size: 0.9rem;">
+    listaCompras.forEach((i, index) => { // Adicionado o index aqui
+    const unidades = parseFloat(i.qtdUnidades) || 0;
+    const gramas = i.gramasPedidas || 0;
+    const infoDestinatario = i.destinatario ? `<br><small style="color:#e67e22;">👤 Para: ${i.destinatario}</small>` : "";
+    
+    const itemRow = document.createElement('div');
+    itemRow.className = 'item-row';
+    itemRow.style.cssText = "display: flex; justify-content: space-between; align-items: center; background: white; margin-bottom: 10px; padding: 15px; border-radius: 12px; border-left: 5px solid #e67e22; box-shadow: 0 2px 5px rgba(0,0,0,0.05);";
+    
+    itemRow.innerHTML = `
+        <div style="flex: 1;">
+            <div style="color: #2c3e50; font-weight: bold; font-size: 1.1rem;">${i.nome}</div>
+            
+            <div style="display: flex; align-items: center; gap: 10px; margin: 5px 0;">
+                <button class="btn-mini" style="background:#bdc3c7; width:26px; height:26px; display:flex; align-items:center; justify-content:center; border:none; border-radius:4px; cursor:pointer; font-weight:bold;" onclick="ajustarQtdLista(${index}, -1)">-</button>
+                <span style="color: #7f8c8d; font-size: 0.9rem;">
                     ${gramas}g → <b>${unidades.toFixed(2)} potes</b>
-                    ${infoDestinatario}
-                </div>
+                </span>
+                <button class="btn-mini" style="background:#bdc3c7; width:26px; height:26px; display:flex; align-items:center; justify-content:center; border:none; border-radius:4px; cursor:pointer; font-weight:bold;" onclick="ajustarQtdLista(${index}, 1)">+</button>
             </div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn-mini" style="background:#27ae60; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="confirmarCompra(${i.idLista})">✅</button>
-                <button class="btn-mini" style="background:#e74c3c; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="removerLista(${i.idLista})">✕</button>
-            </div>`;
-        cont.appendChild(itemRow);
-    });
+            
+            ${infoDestinatario}
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-mini" style="background:#27ae60; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="confirmarCompra(${i.idLista})">✅</button>
+            <button class="btn-mini" style="background:#e74c3c; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="removerLista(${i.idLista})">✕</button>
+        </div>`;
+    cont.appendChild(itemRow);
+});
 }
 
 function confirmarCompra(idL) {
@@ -1601,7 +1541,7 @@ function gerarPDFListaCompras() {
     // Preparação dos dados: Nome e Gramas
     // Aqui somamos as gramas caso o mesmo produto apareça mais de uma vez na lista
     const resumo = {};
-    listaCompras.forEach(item => {
+   listaCompras.forEach (item => {
         if (resumo[item.nome]) {
             resumo[item.nome] += (parseFloat(item.gramasPedidas) || 0);
         } else {
@@ -1650,105 +1590,79 @@ function atualizarIndicadoresDevedores() {
 
 // Função para carregar e mostrar a lista de usuários
 async function renderizarGestaoUsuarios() {
+    // Verifica se é admin antes de tentar carregar
     if (!usuarioLogado || usuarioLogado.tipo !== 'admin') return;
+
     const cont = document.getElementById('lista-usuarios-gestao');
     if (!cont) return;
 
     try {
         const res = await fetch(`${API_URL}/usuarios`);
         const usuarios = await res.json();
-        cont.innerHTML = ''; 
+
+        cont.innerHTML = ''; // Limpa a lista antes de renderizar
 
         usuarios.forEach(u => {
-            if (u.user === 'admin') return; 
+            // Evita que o admin principal exclua a si mesmo por aqui
+            const isAdminPrincipal = u.user === 'admin';
 
             const card = document.createElement('div');
             card.className = 'item-row';
-            card.style.cssText = `background:white; padding:12px; border-radius:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border:1px solid #eee;`;
+            card.style.cssText = `
+                background: white; 
+                padding: 12px; 
+                border-radius: 10px; 
+                margin-bottom: 10px; 
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center;
+                border: 1px solid #eee;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            `;
 
-            // REMOVI espaços e usei o ID limpo
             card.innerHTML = `
                 <div>
-                    <div style="font-weight:bold;">${u.user.toUpperCase()}</div>
-                    <div style="font-size:0.75rem; color:#777;">Acessos: ${u.permissoes.join(', ')}</div>
+                    <div style="font-weight: bold; color: var(--dark);">${u.user.toUpperCase()}</div>
+                    <div style="font-size: 0.75rem; color: #7f8c8d;">
+                        Tipo: ${u.tipo} | Permissões: ${u.permissoes.length > 0 ? u.permissoes.join(', ') : 'Nenhuma'}
+                    </div>
                 </div>
-                <button onclick="deletarUsuario('${u._id}')" style="background:#fff5f5; border:1px solid #feb2b2; color:#c53030; padding:5px 10px; border-radius:6px; cursor:pointer;">
-                    Excluir
-                </button>
+                ${!isAdminPrincipal ? `
+                    <button onclick="deletarUsuario('${u._id}')" style="background: #fff5f5; border: 1px solid #feb2b2; color: #c53030; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">
+                        Excluir
+                    </button>
+                ` : '<span style="font-size: 0.7rem; color: #95a5a6;">(Mestre)</span>'}
             `;
             cont.appendChild(card);
         });
-    } catch (e) { console.error("Erro ao listar:", e); }
-}
-
-async function deletarUsuario(id) {
-    const confirmacao = await Swal.fire({
-        title: 'Excluir usuário?',
-        text: "Esta ação removerá o acesso permanentemente.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        confirmButtonText: 'Sim, excluir'
-    });
-
-    if (confirmacao.isConfirmed) {
-        try {
-            // Garantimos que não há barras duplas na URL
-            const urlFinal = `${API_URL}/usuarios/${id}`.replace(/([^:]\/)\/+/g, "$1");
-            
-            const res = await fetch(urlFinal, { 
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (res.ok) {
-                Swal.fire('Sucesso', 'Utilizador removido.', 'success');
-                renderizarGestaoUsuarios(); 
-            } else {
-                const erroData = await res.json();
-                Swal.fire('Erro', erroData.message || 'Erro ao excluir.', 'error');
-            }
-        } catch (e) {
-            Swal.fire('Erro', 'Falha na conexão com o servidor.', 'error');
-        }
+    } catch (e) {
+        console.error("Erro ao carregar lista de usuários:", e);
+        cont.innerHTML = '<p style="color:red;">Erro ao carregar usuários.</p>';
     }
 }
+
 // Função para deletar usuário
 async function deletarUsuario(id) {
     const confirmacao = await Swal.fire({
-        title: 'Excluir usuário?',
-        text: "O acesso será removido permanentemente.",
+        title: 'Tem certeza?',
+        text: "O usuário perderá o acesso imediatamente!",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
-        confirmButtonText: 'Sim, excluir'
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
     });
 
     if (confirmacao.isConfirmed) {
         try {
-            // 1. Limpa o ID de qualquer espaço ou caractere estranho
-            const idLimpo = id.trim().replace(':', '');
-            
-            // 2. Garante que a URL não tenha barras duplas (ex: api//usuarios)
-            const urlBase = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
-            const urlFinal = `${urlBase}/usuarios/${idLimpo}`;
-
-            console.log("Tentando DELETE em:", urlFinal);
-
-            const res = await fetch(urlFinal, { 
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
+            const res = await fetch(`${API_URL}/usuarios/${id}`, { method: 'DELETE' });
             if (res.ok) {
-                Swal.fire('Sucesso', 'Usuário removido.', 'success');
-                renderizarGestaoUsuarios(); 
-            } else {
-                const erroData = await res.json();
-                Swal.fire('Erro', erroData.message || 'Erro ao excluir.', 'error');
+                Swal.fire('Excluído!', 'Usuário removido com sucesso.', 'success');
+                renderizarGestaoUsuarios(); // Recarrega a lista
             }
         } catch (e) {
-            Swal.fire('Erro', 'Falha na conexão com o servidor.', 'error');
+            Swal.fire('Erro', 'Não foi possível excluir o usuário.', 'error');
         }
     }
 }
@@ -1782,4 +1696,32 @@ async function salvarNovoUsuario() {
     } catch (e) {
         Swal.fire("Erro", "Falha na comunicação com o servidor", "error");
     }
+} 
+function alterarQuantidade(index, delta) {
+    // Altera a quantidade baseada no delta (+1 ou -1)
+    listaCompras[index].qtd += delta;
+
+    // Impede que a quantidade seja menor que 1
+    if (listaCompras[index].qtd < 1) {
+        listaCompras[index].qtd = 1;
+    }
+
+    // Atualiza a visualização e os totais
+    renderizarListaCompras();
+    atualizarTotalPedido(); // se você tiver uma função de soma total
+}
+function ajustarQtdLista(index, delta) {
+    const item = listaCompras[index];
+    const p = produtos.find(x => x.id === item.idProd);
+    
+    // Altera a quantidade (mínimo de 0.5 potes)
+    item.qtdUnidades = Math.max(0.5, (parseFloat(item.qtdUnidades) || 0) + delta);
+    
+    // Recalcula o peso em gramas baseado no peso original do produto
+    if (p) {
+        item.gramasPedidas = item.qtdUnidades * p.gramas;
+    }
+
+    sincronizar(); // Salva as alterações no banco/nuvem
+    renderizarLista(); // Atualiza a lista na tela para mostrar o novo valor
 }
