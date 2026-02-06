@@ -8,21 +8,18 @@ window.onload = async () => {
     const sessaoSalva = localStorage.getItem('sessao_jirineu');
 
     if (sessaoSalva) {
-        // Recupera os dados do disco
         usuarioLogado = JSON.parse(sessaoSalva);
-        
-        // Esconde o login imediatamente
         document.getElementById('modalLogin').style.display = 'none';
         
-        // Carrega os dados do banco
+        // Carrega os dados (carregarDadosReais agora já sabe se é visita ou não)
         await carregarDadosReais();
 
-        // Se for restrito, esconde as abas proibidas
-        if (usuarioLogado.tipo === "restrito") {
+        // Re-aplica bloqueios visuais se for visitante ou restrito
+        if (usuarioLogado.isGuest) {
+            bloquearFuncoesVisita();
+        } else if (usuarioLogado.tipo === "restrito") {
             aplicarRestricoes(usuarioLogado.permissoes);
         }
-        
-        console.log("Sessão restaurada com sucesso.");
     }
 };
 
@@ -89,21 +86,32 @@ let chart = null;
 
 
 // --- FUNÇÃO DE SINCRONIZAÇÃO (ADICIONADA) ---
+// --- FUNÇÃO DE SINCRONIZAÇÃO (ADICIONADA/ATUALIZADA) ---
 async function sincronizar() {
+    // BLOQUEIO 100%: Se for visitante, nem tenta enviar
+    if (usuarioLogado && usuarioLogado.isGuest) {
+        console.log("Sincronização abortada: Modo Visita não salva dados.");
+        return; 
+    }
+
+    // Salva no LocalStorage para redundância
     localStorage.setItem('sp_prods', JSON.stringify(produtos));
     localStorage.setItem('sp_vendas', JSON.stringify(vendas));
     localStorage.setItem('sp_cfgs', JSON.stringify(configs));
     localStorage.setItem('sp_lista', JSON.stringify(listaCompras));
 
     try {
-        await fetch(`${API_URL}/save`, {
+        // Envia para a chave 'principal' (já que visitantes param no return acima)
+        await fetch(`${API_URL}/save/principal`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ produtos, vendas, configs, listaCompras })
         });
-    } catch (e) { console.warn("Offline: Node não sincronizou."); }
+        console.log("✅ Banco de dados atualizado (Chave: Principal)");
+    } catch (e) {
+        console.warn("Erro na sincronização online:", e);
+    }
 }
-
 // --- NAVEGAÇÃO ---
 function notify(title, text, icon) {
     Swal.fire({ title, text, icon, confirmButtonColor: '#e67e22' });
@@ -774,40 +782,71 @@ async function carregarDadosReais() {
     }
 }
 function confirmarLoginVisita() {
-    usuarioLogado = "visita";
+    // 1. Define o objeto de segurança
+    usuarioLogado = { 
+        user: "Visitante", 
+        tipo: "visita", 
+        isGuest: true // A flag mestre de bloqueio
+    };
+
     document.getElementById('modalLogin').style.display = 'none';
     
-    // Alimenta as variáveis globais com os dados de exemplo
-    produtos = [...dadosFicticios.produtos];
-    vendas = [...dadosFicticios.vendas];
-    listaCompras = [...dadosFicticios.listaCompras];
-    configs = dadosFicticios.configs;
+    // 2. Isolamento de dados: Criamos cópias que não linkam com o banco real
+    if (typeof dadosFicticios !== 'undefined') {
+        produtos = JSON.parse(JSON.stringify(dadosFicticios.produtos || []));
+        vendas = JSON.parse(JSON.stringify(dadosFicticios.vendas || []));
+        listaCompras = JSON.parse(JSON.stringify(dadosFicticios.listaCompras || []));
+        configs = JSON.parse(JSON.stringify(dadosFicticios.configs || {}));
+    }
 
-    renderizarTudo(); // Chama a atualização da tela e do gráfico
+    // 3. Persistência apenas local (Sessão)
+    localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
+
+    // 4. Ativação da interface e bloqueio total
+    renderizarTudo();
     bloquearFuncoesVisita();
     
-    if(typeof notify === "function") notify("Modo Visita", "Dados de demonstração ativos.", "info");
+    if(typeof notify === "function") {
+        notify("Modo Visita", "BLOQUEIO ATIVO: Nenhuma alteração será salva.", "info");
+    }
 }
+
 function renderizarTudo() {
-    // Chama a função do gráfico que já existe no seu código
+    // Chama a atualização do gráfico e das tabelas
     if (typeof atualizarDash === "function") atualizarDash(); 
-    
-    // Chama as listagens das tabelas
     if (typeof listarEstoque === "function") listarEstoque();
     if (typeof listarVendas === "function") listarVendas();
 }
 
 function bloquearFuncoesVisita() {
-    document.querySelectorAll('button, input').forEach(el => {
-        const txt = el.innerText ? el.innerText.toLowerCase() : "";
-        // Bloqueia se for input ou botões de ação crítica
-        if (el.tagName === "INPUT" || txt.includes("salvar") || txt.includes("excluir") || txt.includes("vender")) {
-            el.disabled = true;
-            el.style.opacity = '0.5';
-            el.style.cursor = 'not-allowed';
+    // Desativa TODOS os inputs, botões e seletores
+    const elementosParaBloquear = document.querySelectorAll('button, input, select, textarea');
+    
+    elementosParaBloquear.forEach(el => {
+        // Exceção: Botões de navegação e logout devem funcionar
+        const onclickAttr = el.getAttribute('onclick') || "";
+        if (onclickAttr.includes('showScreen') || onclickAttr.includes('efetuarLogout')) {
+            return; 
         }
+
+        // Bloqueio físico e visual
+        el.disabled = true;
+        el.style.opacity = '0.4';
+        el.style.cursor = 'not-allowed';
+        
+        // Remove qualquer evento de clique que possa estar pendurado
+        el.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        };
     });
+
+    // Esconde seções sensíveis como gestão de usuários
+    const areaAdmin = document.getElementById('area-admin-usuarios');
+    if (areaAdmin) areaAdmin.style.display = 'none';
 }
+
 
 // --- FUNÇÕES DE NAVEGAÇÃO DO MODAL (LIGAM AOS BOTÕES DO INDEX.HTML) ---
 
@@ -1040,18 +1079,26 @@ function efetuarLogout() {
 }
 // --- FUNÇÃO PARA CARREGAR DADOS (ADMIN) ---
 async function carregarDadosReais() {
+    // 1. Identifica qual chave buscar (visita ou principal)
+    const chave = (usuarioLogado && usuarioLogado.isGuest) ? "visita" : "principal";
+    
     try {
-        const res = await fetch(`${API_URL}/data`);
-        const data = await res.json();
-        if (data) {
-            produtos = data.produtos || [];
-            vendas = data.vendas || [];
-            // Aqui carregamos também os utilizadores do banco para conferência
-            usuariosCadastrados = data.usuarios || []; 
+        // 2. Faz a chamada para a nova rota parametrizada
+        const res = await fetch(`${API_URL}/load/${chave}`);
+        const dados = await res.json();
+
+        if (dados) {
+            // Alimenta as variáveis globais com os dados do banco
+            produtos = dados.produtos || [];
+            vendas = dados.vendas || [];
+            listaCompras = dados.listaCompras || [];
+            configs = dados.config || {};
+            
             renderizarTudo();
         }
     } catch (e) {
-        console.error("Erro ao carregar dados:", e);
+        console.error("Erro ao carregar dados do MongoDB:", e);
+        if(typeof notify === "function") notify("Erro", "Não foi possível carregar os dados.", "danger");
     }
 }
 
@@ -1194,3 +1241,4 @@ function finalizarLogin() {
     carregarDadosReais();
     if (usuarioLogado.tipo === "restrito") aplicarRestricoes(usuarioLogado.permissoes);
 }
+
