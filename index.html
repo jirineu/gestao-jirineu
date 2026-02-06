@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-<link rel="manifest" href="manifest.json">
+<!-- <link rel="manifest" href="manifest.json"> -->
 <meta name="theme-color" content="#e67e22">
 
 <script>
@@ -106,11 +106,21 @@
                         <div id="dash-estoque-critico" class="info-main" style="color: var(--danger); margin-top: 4px;">0 produtos</div>
                     </div>
 
+              <div class="stat-box-full" style="margin-bottom: 10px; padding: 12px; background: #fff5f5; border-radius: 8px; border-left: 4px solid var(--danger);">
+    <span class="info-sub" style="color: #c0392b; font-weight: bold;">⏳ Total Devedores (A Receber):</span>
+    <div id="indicador-devedores-dash" class="info-main" style="color: var(--danger); font-size: 1.3rem; margin-top: 4px;">R$ 0,00</div>
+</div>
+            
+        </div>
+    </div>
+                    </div>
+
                     <div class="stat-box-full" style="padding: 12px; background: #f9f9f9; border-radius: 8px;">
                         <span class="info-sub" style="font-weight: bold;">🧊 Menos Movimentados (10):</span>
                         <div id="dash-menos-movimentados" class="info-sub" style="font-size: 0.85rem; margin-top: 8px; line-height: 1.5;">-</div>
                     </div>
                 </div>
+                
             </div>
         </section>
 
@@ -151,6 +161,13 @@
 
         <section id="screen-lista" class="screen">
             <h2 class="section-title">📝 Produção / Compras</h2>
+            <div class="lista-controls" style="display: flex; gap: 10px; margin-bottom: 15px;">
+   <div class="lista-controls" style="margin-bottom: 15px;">
+   <button class="btn btn-save" onclick="menuListaAutomatizada()">
+   ⚙️ Lista Automatizada
+</button>
+</div>
+</div>
             <div class="card">
                 <div class="input-group">
                     <label>Selecionar Produto</label>
@@ -205,6 +222,10 @@
         <section id="screen-vendas" class="screen">
             <div class="header-vendas">
                 <h2 class="section-title">💰 Vendas</h2>
+                <div 
+        <div id="indicador-devedores-vendas" style="font-size: 0.9rem; color: #c0392b; font-weight: bold; background: #fff5f5; padding: 8px 15px; border-radius: 8px; border-left: 4px solid var(--danger); box-shadow: var(--shadow);">
+    Devedores: R$ 0,00
+</div>
                 <button class="btn-action" onclick="abrirNovaVenda()">Nova Venda</button>
             </div>
             <div class="search-box">
@@ -246,51 +267,50 @@
             </div>
         </section>
 
-        <section id="screen-config" class="screen">
-            <h2 class="section-title">⚙️ Configurações</h2>
-            <div class="card">
-                <div class="input-group">
-                    <label>Preço de Venda Padrão (R$)</label>
-                    <input type="number" id="cfg-valor-fixo" step="0.01">
-                </div>
-                <button class="btn btn-save" onclick="salvarConfig()">Salvar Ajuste</button>
-            </div>
-            <div class="card" style="margin-top: 20px;">
-                <label>📦 Gerenciar Dados</label>
-                <button class="btn" style="background: #34495e; color: white; margin-bottom: 10px; width: 100%;" onclick="exportarBackup()">📤 Exportar Backup (JSON)</button>
-                <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importarBackup(event)">
-                <button class="btn btn-cancel" style="width: 100%;" onclick="document.getElementById('import-file').click()">📂 Importar Backup</button>
-            </div>
-
- <div class="card" style="margin-top:20px; padding:15px; border:1px solid #ccc;">
-    <h3>👤 Cadastrar Novo Utilizador</h3>
+     <section id="screen-config" class="screen">
+    <h2 class="section-title">⚙️ Configurações</h2>
     
-    <input type="text" id="novo-user-login" placeholder="Nome do Utilizador" style="width:100%; margin-bottom:10px; padding:8px;">
-    
-    <input type="password" id="novo-user-senha" placeholder="Senha" style="width:100%; margin-bottom:10px; padding:8px;">
-    ...
-    <label>Permitir acesso às abas:</label>
-    <div style="text-align:left; margin:10px 0;">
-        <input type="checkbox" class="perm-check" value="dash"> Dashboard <br>
-        <input type="checkbox" class="perm-check" value="lista"> Entrada <br>
-        <input type="checkbox" class="perm-check" value="estoque"> Estoque <br>
-        <input type="checkbox" class="perm-check" value="vendas"> Vendas
+    <div class="card">
+        <div class="input-group">
+            <label>Preço de Venda Padrão (R$)</label>
+            <input type="number" id="cfg-valor-fixo" step="0.01">
+        </div>
+        <button class="btn btn-save" onclick="salvarConfig()">Salvar Ajuste</button>
     </div>
 
+    <div class="card" style="margin-top: 20px;">
+        <label>📦 Gerenciar Dados</label>
+        <button class="btn" style="background: #34495e; color: white; margin-bottom: 10px; width: 100%;" onclick="exportarBackup()">📤 Exportar Backup (JSON)</button>
+        <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importarBackup(event)">
+        <button class="btn btn-cancel" style="width: 100%;" onclick="document.getElementById('import-file').click()">📂 Importar Backup</button>
+    </div>
 
-</div>
-  <div id="area-admin-usuarios" style="display:none; margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px;">
-    <h3 style="margin: 20px 0;">Gerenciar Usuários Existentes</h3>
-    <div id="lista-usuarios-gestao">
+    <div id="area-admin-usuarios" style="display:none; margin-top: 20px;">
+        <div class="card" style="border-top: 4px solid var(--primary);">
+            <h3>👥 Gestão de Usuários</h3>
+            
+            <div id="lista-usuarios-gestao" style="margin: 15px 0;"></div>
+
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+            <h4>➕ Novo Usuário</h4>
+            <input type="text" id="new-user-name" placeholder="Nome do Usuário" class="custom-input" style="margin-bottom: 8px; width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+            <input type="password" id="new-user-pass" placeholder="Senha" class="custom-input" style="margin-bottom: 8px; width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+            
+            <p style="font-size: 0.8rem; font-weight: bold; margin: 10px 0 5px;">Permissões de Acesso:</p>
+            <div id="permissoes-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem; margin-bottom: 15px;">
+                <label><input type="checkbox" class="perm-check" value="dash"> Dashboard</label>
+                <label><input type="checkbox" class="perm-check" value="lista"> Produção</label>
+                <label><input type="checkbox" class="perm-check" value="estoque"> Estoque</label>
+                <label><input type="checkbox" class="perm-check" value="vendas"> Vendas</label>
+            </div>
+            
+            <button class="btn btn-save" onclick="salvarNovoUsuario()" style="width: 100%;">Cadastrar Usuário</button>
         </div>
-</div>
+    </div>
 
-
-    <button class="btn btn-save" onclick="prepararCadastro()">Salvar Novo Usuário</button>
-</div>
-
-<button class="btn btn-cancel" onclick="efetuarLogout()" style="margin-top:20px; width:100%;">Encerrar Sessão (Logout)</button>
-        </section>
+    <button class="btn btn-cancel" onclick="efetuarLogout()" style="margin-top:20px; width:100%;">Encerrar Sessão (Logout)</button>
+</section>
     </main>
 
     <nav class="bottom-nav">
@@ -304,5 +324,4 @@
     <script src="script.js"></script>
 </body>
 </html>
-
 
