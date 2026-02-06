@@ -1,14 +1,19 @@
 {
   "name": "Gestão Jirineu",
   "short_name": "Jirineu",
-  "start_url": "index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2e7d32",
+  "theme_color": "#e67e22",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3081/3081931.png",
-      "sizes": "512x512","192x192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3081/3081931.png",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ]
