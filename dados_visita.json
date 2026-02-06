@@ -1,15 +1,1 @@
-{
-  "produtos": [
-    { "id": 501, "nome": "Pimenta do Reino (Fictício)", "custo": 80.0, "gramas": 50, "venda": 6.5, "estoque": 45 },
-    { "id": 502, "nome": "Edu Guedes (Fictício)", "custo": 35.0, "gramas": 100, "venda": 7.5, "estoque": 20 },
-    { "id": 503, "nome": "Orégano (Fictício)", "custo": 45.0, "gramas": 30, "venda": 4.0, "estoque": 100 }
-  ],
-  "vendas": [
-    { "id": 901, "cliente": "Visitante Exemplo", "total": 45.50, "status": "pago", "dataISO": "2026-02-04T10:00:00Z" },
-    { "id": 902, "cliente": "Devedor Teste", "total": 15.00, "status": "devedor", "dataISO": "2026-02-04T12:00:00Z" }
-  ],
-  "listaCompras": [
-    { "idLista": 1, "nome": "Comprar Embalagens", "gramasPedidas": 0, "qtdUnidades": 100 }
-  ],
-  "configs": { "valorFixo": 3.5 }
-}
+
