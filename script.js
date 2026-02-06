@@ -11,10 +11,9 @@ window.onload = async () => {
         usuarioLogado = JSON.parse(sessaoSalva);
         document.getElementById('modalLogin').style.display = 'none';
         
-        // Carrega os dados (carregarDadosReais agora já sabe se é visita ou não)
         await carregarDadosReais();
 
-        // Re-aplica bloqueios visuais se for visitante ou restrito
+        // Se recarregar a página e for visitante, bloqueia tudo de novo
         if (usuarioLogado.isGuest) {
             bloquearFuncoesVisita();
         } else if (usuarioLogado.tipo === "restrito") {
@@ -22,7 +21,6 @@ window.onload = async () => {
         }
     }
 };
-
 // --- FUNÇÃO PARA APLICAR AS RESTRIÇÕES VISUAIS ---
 function aplicarRestricoes(permissoes) {
     const botoesNav = document.querySelectorAll('.nav-item');
@@ -88,28 +86,26 @@ let chart = null;
 // --- FUNÇÃO DE SINCRONIZAÇÃO (ADICIONADA) ---
 // --- FUNÇÃO DE SINCRONIZAÇÃO (ADICIONADA/ATUALIZADA) ---
 async function sincronizar() {
-    // BLOQUEIO 100%: Se for visitante, nem tenta enviar
+    // TRAVA MESTRE: Impede qualquer alteração no banco de dados
     if (usuarioLogado && usuarioLogado.isGuest) {
-        console.log("Sincronização abortada: Modo Visita não salva dados.");
+        console.warn("Modo Visita: Sincronização bloqueada para proteger o banco de dados.");
         return; 
     }
 
-    // Salva no LocalStorage para redundância
+    // Código original para usuários autorizados
     localStorage.setItem('sp_prods', JSON.stringify(produtos));
     localStorage.setItem('sp_vendas', JSON.stringify(vendas));
     localStorage.setItem('sp_cfgs', JSON.stringify(configs));
     localStorage.setItem('sp_lista', JSON.stringify(listaCompras));
 
     try {
-        // Envia para a chave 'principal' (já que visitantes param no return acima)
         await fetch(`${API_URL}/save/principal`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ produtos, vendas, configs, listaCompras })
         });
-        console.log("✅ Banco de dados atualizado (Chave: Principal)");
     } catch (e) {
-        console.warn("Erro na sincronização online:", e);
+        console.error("Erro na sincronização:", e);
     }
 }
 // --- NAVEGAÇÃO ---
@@ -134,7 +130,15 @@ function showScreen(id, btn) {
     if(id === 'dash') atualizarDash();
     if(id === 'lista') abrirListaCompras();
     if(id === 'config') document.getElementById('cfg-valor-fixo').value = configs.valorFixo;
+
+    if (usuarioLogado && usuarioLogado.isGuest) {
+        // Pequeno atraso para garantir que a tabela terminou de carregar
+        setTimeout(() => {
+            bloquearFuncoesVisita();
+        }, 100);
+    }
 }
+
 
 // --- CONFIGURAÇÕES ---
 function salvarConfig() {
@@ -920,56 +924,23 @@ async function validarAdmin() {
     }
 }
 async function confirmarLoginVisita() {
-    // 1. Dados de Backup (Caso o arquivo JSON falhe, o sistema usa estes)
-    const dadosDeSeguranca = {
-        "produtos": [
-            { "id": 501, "nome": "Pimenta (Exemplo)", "custo": 80, "gramas": 50, "venda": 6.5, "estoque": 45 },
-            { "id": 502, "nome": "Edu Guedes (Exemplo)", "custo": 35, "gramas": 100, "venda": 7.5, "estoque": 20 }
-        ],
-        "vendas": [
-            { "id": 901, "cliente": "Venda Paga", "total": 45.50, "status": "pago", "dataISO": new Date().toISOString(), "itens": [] },
-            { "id": 902, "cliente": "Venda Devedora", "total": 15.00, "status": "devedor", "dataISO": new Date().toISOString(), "itens": [] }
-        ],
-        "listaCompras": [],
-        "configs": { "valorFixo": 3.5 }
+    usuarioLogado = { 
+        user: "Visitante", 
+        tipo: "visita", 
+        isGuest: true 
     };
 
-    try {
-        // Tenta carregar o arquivo externo
-        const response = await fetch('dados_visita.json');
-        
-        if (!response.ok) throw new Error("Arquivo não encontrado");
-
-        const dadosJson = await response.json();
-        produtos = dadosJson.produtos;
-        vendas = dadosJson.vendas;
-        listaCompras = dadosJson.listaCompras || [];
-        configs = dadosJson.configs || { valorFixo: 3.5 };
-        console.log("Dados carregados via JSON externo.");
-
-    } catch (error) {
-        // Se der erro (como o que aconteceu), ele usa os dados acima automaticamente
-        console.warn("Usando dados de demonstração internos (Plano B).");
-        produtos = dadosDeSeguranca.produtos;
-        vendas = dadosDeSeguranca.vendas;
-        listaCompras = dadosDeSeguranca.listaCompras;
-        configs = dadosDeSeguranca.configs;
-    }
-
-    // Fecha o modal e libera a tela
-    usuarioLogado = "visita";
     document.getElementById('modalLogin').style.display = 'none';
+    localStorage.setItem('sessao_jirineu', JSON.stringify(usuarioLogado));
 
-    // Atualiza os gráficos e tabelas com os nomes das funções que já existem no seu script
-    if (typeof atualizarDash === "function") atualizarDash(); 
-    if (typeof listarEstoque === "function") listarEstoque();
-    if (typeof listarVendas === "function") listarVendas();
+    // Carrega os dados da partição "visita" do MongoDB
+    await carregarDadosReais(); 
     
-    // Bloqueia botões de salvar/excluir
-    if (typeof bloquearFuncoesVisita === "function") bloquearFuncoesVisita();
+    // Trava a interface
+    bloquearFuncoesVisita();
 
-    if (typeof notify === "function") {
-        notify("Modo Visita", "Dados de demonstração carregados com sucesso.", "info");
+    if(typeof Swal !== 'undefined') {
+        Swal.fire("Modo Visita", "Acesso apenas para visualização. Alterações não são permitidas.", "info");
     }
 }
 async function cadastrarNovoUsuario(nome, senha, permissoes) {
@@ -1242,3 +1213,52 @@ function finalizarLogin() {
     if (usuarioLogado.tipo === "restrito") aplicarRestricoes(usuarioLogado.permissoes);
 }
 
+function bloquearFuncoesVisita() {
+    // Seleciona todos os elementos de interação
+    const elementosParaBloquear = document.querySelectorAll('button, input, select, textarea');
+    
+    elementosParaBloquear.forEach(el => {
+        // Exceção: Permite apenas botões de navegar entre telas e o de Sair (Logout)
+        const onclickAttr = el.getAttribute('onclick') || "";
+        if (onclickAttr.includes('showScreen') || onclickAttr.includes('efetuarLogout')) {
+            return; 
+        }
+
+        // Desativa o elemento
+        el.disabled = true;
+        el.style.opacity = '0.5';
+        el.style.cursor = 'not-allowed';
+        
+        // Remove cliques acidentais
+        el.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        };
+    });
+
+    // Esconde especificamente a área de gestão de usuários nas configurações
+    const areaAdmin = document.getElementById('area-admin-usuarios');
+    if (areaAdmin) areaAdmin.style.display = 'none';
+}
+function bloquearFuncoesVisita() {
+    // 1. Desativa elementos estáticos
+    const elementos = document.querySelectorAll('button, input, select');
+    elementos.forEach(el => {
+        const acao = el.getAttribute('onclick') || "";
+        // Se NÃO for botão de trocar tela ou logout, trava.
+        if (!acao.includes('showScreen') && !acao.includes('efetuarLogout')) {
+            el.disabled = true;
+            el.style.opacity = '0.5';
+            el.style.cursor = 'not-allowed';
+        }
+    });
+
+    // 2. Trava específica para os botões de + e - do estoque e botões de lixeira
+    const botoesAcao = document.querySelectorAll('.btn-qty, .btn-del, .btn-save');
+    botoesAcao.forEach(btn => {
+        btn.disabled = true;
+        btn.style.pointerEvents = 'none'; // Impede qualquer clique
+        btn.style.filter = 'grayscale(100%)'; // Fica cinza
+    });
+}
