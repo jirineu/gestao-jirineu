@@ -2,7 +2,11 @@ const API_URL = window.location.hostname === 'localhost'
    ? "http://localhost:3000/api" 
    : "https://gestao-jirineu.onrender.com/api";
 // No topo do script.js
-let usuarioLogado = null; // Inicia vazio
+let usuarioLogado = null; // Inicia vazio]
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+}
 
 window.onload = async () => {
     const sessaoSalva = localStorage.getItem('sessao_jirineu');
@@ -1262,3 +1266,4 @@ function bloquearFuncoesVisita() {
         btn.style.filter = 'grayscale(100%)'; // Fica cinza
     });
 }
+
