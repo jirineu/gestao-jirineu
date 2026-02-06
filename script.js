@@ -2,11 +2,7 @@ const API_URL = window.location.hostname === 'localhost'
    ? "http://localhost:3000/api" 
    : "https://gestao-jirineu.onrender.com/api";
 // No topo do script.js
-let usuarioLogado = null; // Inicia vazio]
-
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-}
+let usuarioLogado = null; // Inicia vazio
 
 window.onload = async () => {
     const sessaoSalva = localStorage.getItem('sessao_jirineu');
@@ -112,38 +108,156 @@ async function sincronizar() {
         console.error("Erro na sincronização:", e);
     }
 }
+async function salvarDados() {
+    // Se o usuário for um visitante (guest), não tenta salvar no banco
+    if (usuarioLogado && usuarioLogado.isGuest) return;
+
+    try {
+        const response = await fetch(`${API_URL}/salvar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                estoque: produtos, // envia o estoque atualizado
+                listaCompras: listaCompras // envia a lista de compras atualizada
+            })
+        });
+
+        if (!response.ok) {
+            console.error("Erro ao salvar dados no servidor");
+        } else {
+            console.log("Dados sincronizados com o MongoDB");
+        }
+    } catch (error) {
+        console.error("Erro na requisição de salvamento:", error);
+    }
+}
 // --- NAVEGAÇÃO ---
 function notify(title, text, icon) {
     Swal.fire({ title, text, icon, confirmButtonColor: '#e67e22' });
 }
 
+// 1. Corrigir a navegação para abrir a área admin
 function showScreen(id, btn) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById('screen-' + id).classList.add('active');
+    
+    // Aceita 'config' ou 'configs' e ativa a tela certa
+    const realId = (id === 'config' || id === 'configs') ? 'screen-config' : 'screen-' + id;
+    const target = document.getElementById(realId);
+    if(target) target.classList.add('active');
     
     if(!btn) {
-        const map = { 'dash':0, 'lista':1, 'estoque':2, 'vendas':3, 'config':4 };
+        const map = { 'dash':0, 'lista':1, 'estoque':2, 'vendas':3, 'config':4, 'configs':4 };
         btn = document.querySelectorAll('.nav-item')[map[id]];
     }
     if(btn) btn.classList.add('active');
 
-    if(id === 'add') aplicarPrecoPadrao();
-    if(id === 'estoque') listarEstoque();
-    if(id === 'vendas') listarVendas();
-    if(id === 'dash') atualizarDash();
-    if(id === 'lista') abrirListaCompras();
-    if(id === 'config') document.getElementById('cfg-valor-fixo').value = configs.valorFixo;
+    if(id === 'config' || id === 'configs') {
+        document.getElementById('cfg-valor-fixo').value = configs.valorFixo || 0;
+        
+        // MOSTRAR ADMIN SE FOR ADMIN
+        const areaAdmin = document.getElementById('area-admin-usuarios');
+        if (usuarioLogado && usuarioLogado.tipo === 'admin') {
+            areaAdmin.style.display = 'block';
+            renderizarGestaoUsuarios();
+        } else {
+            areaAdmin.style.display = 'none';
+        }
+    }
+    // ... outros ifs (dash, estoque, etc)
+}
 
-    if (usuarioLogado && usuarioLogado.isGuest) {
-        // Pequeno atraso para garantir que a tabela terminou de carregar
-        setTimeout(() => {
-            bloquearFuncoesVisita();
-        }, 100);
+// 2. Função para SALVAR o novo usuário
+async function salvarNovoUsuario() {
+    const user = document.getElementById('new-user-name').value.trim();
+    const pass = document.getElementById('new-user-pass').value.trim();
+    const checks = document.querySelectorAll('.perm-check:checked');
+    const permissoes = Array.from(checks).map(c => c.value);
+
+    if (!user || !pass) return Swal.fire("Erro", "Preencha nome e senha", "error");
+
+    try {
+        const res = await fetch(`${API_URL}/save-user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user, pass, tipo: 'restrito', permissoes })
+        });
+
+        if (res.ok) {
+            Swal.fire("Sucesso", "Usuário cadastrado!", "success");
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-pass').value = '';
+            document.querySelectorAll('.perm-check').forEach(c => c.checked = false);
+            renderizarGestaoUsuarios();
+        } else {
+            const data = await res.json();
+            Swal.fire("Erro", data.message, "error");
+        }
+    } catch (e) {
+        Swal.fire("Erro", "Falha ao conectar ao servidor", "error");
     }
 }
 
+// 3. Função para EXCLUIR (Corrigida)
+async function deletarUsuario(id) {
+    const confirmacao = await Swal.fire({
+        title: 'Excluir usuário?',
+        text: "O acesso deste usuário será revogado imediatamente!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    });
 
+    if (confirmacao.isConfirmed) {
+        try {
+            const res = await fetch(`${API_URL}/usuarios/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                Swal.fire("Sucesso", "Usuário removido.", "success");
+                renderizarGestaoUsuarios(); // Atualiza a lista na tela
+            } else {
+                Swal.fire("Erro", "Não foi possível excluir.", "error");
+            }
+        } catch (e) {
+            console.error(e);
+            Swal.fire("Erro", "Falha de conexão com o servidor.", "error");
+        }
+    }
+}
+
+async function salvarNovoUsuario() {
+    const user = document.getElementById('new-user-name').value;
+    const pass = document.getElementById('new-user-pass').value;
+    const checks = document.querySelectorAll('.perm-check:checked');
+    const permissoes = Array.from(checks).map(c => c.value);
+
+    if (!user || !pass) return Swal.fire("Erro", "Nome e senha obrigatórios", "warning");
+
+    try {
+        const res = await fetch(`${API_URL}/save-user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user, pass, tipo: 'restrito', permissoes })
+        });
+
+        if (res.ok) {
+            Swal.fire("Sucesso", "Usuário criado!", "success");
+            // Limpa os campos
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-pass').value = '';
+            document.querySelectorAll('.perm-check').forEach(c => c.checked = false);
+            renderizarGestaoUsuarios();
+        }
+    } catch (e) {
+        Swal.fire("Erro", "Falha ao salvar usuário.", "error");
+    }
+}
 // --- CONFIGURAÇÕES ---
 function salvarConfig() {
     configs.valorFixo = document.getElementById('cfg-valor-fixo').value;
@@ -167,49 +281,136 @@ function abrirListaCompras() {
 }
 
 function adicionarNaLista() {
-    const id = parseInt(document.getElementById('li-produto-select').value);
-    const gramasInformadas = parseFloat(document.getElementById('li-qtd-gramas').value);
-    const destinatario = document.getElementById('li-destinatario').value || "";
-    
-    if(!gramasInformadas) return notify("Atenção", "Insira a quantidade total em gramas!", "warning");
-    
-    const p = produtos.find(x => x.id === id);
-    const unidadesConvertidas = gramasInformadas / p.gramas; 
+    const select = document.getElementById('li-produto-select');
+    const qtdInput = document.getElementById('li-qtd-gramas');
+    const destInput = document.getElementById('li-destinatario');
 
-    listaCompras.push({ 
+    if (!select.value || !qtdInput.value) {
+        return notify("Atenção", "Selecione um produto e insira as gramas!", "warning");
+    }
+
+    const idProd = parseInt(select.value);
+    const gramasInformadas = parseFloat(qtdInput.value);
+    const p = produtos.find(x => x.id === idProd);
+
+    if (!p) return;
+
+    // Calcula a conversão para potes baseada na gramagem do produto
+    const unidadesConvertidas = gramasInformadas / p.gramas;
+
+    const novoItem = { 
         idLista: Date.now(), 
-        idProd: id, 
+        idProd: idProd, 
         nome: p.nome, 
-        destinatario: destinatario,
+        destinatario: destInput.value || "Manual",
         gramasPedidas: gramasInformadas,
         qtdUnidades: unidadesConvertidas 
-    });
+    };
+
+    // Adiciona ao array original do seu script
+    listaCompras.push(novoItem);
     
-    sincronizar();
-    document.getElementById('li-qtd-gramas').value = '';
-    document.getElementById('li-destinatario').value = '';
-    renderizarLista();
+    // Usa as funções que já existem no seu script.js para salvar e mostrar
+    salvarLista(); 
+    
+    // Limpa os campos
+    qtdInput.value = '';
+    destInput.value = '';
+
+    Swal.fire({
+        icon: 'success',
+        title: 'Adicionado!',
+        timer: 1000,
+        showConfirmButton: false
+    });
+}
+function renderizarLista() {
+    const cont = document.getElementById('lista-compras-pendentes');
+    if (!cont) return;
+    
+    cont.innerHTML = '';
+
+    if (listaCompras.length === 0) {
+        cont.innerHTML = '<p style="text-align:center; color:#95a5a6; margin-top:20px;">Nenhum item pendente.</p>';
+        return;
+    }
+
+    listaCompras.forEach(i => {
+        const infoDestinatario = i.destinatario ? `<br><small style="color:#e67e22;">👤 Para: ${i.destinatario}</small>` : "";
+        
+        const itemRow = document.createElement('div');
+        itemRow.className = 'item-row';
+        itemRow.style.cssText = `
+            display: flex; justify-content: space-between; align-items: center;
+            background: white; margin-bottom: 10px; padding: 15px;
+            border-radius: 12px; border-left: 5px solid #e67e22;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        `;
+
+        itemRow.innerHTML = `
+            <div style="flex: 1;">
+                <div style="color: #2c3e50; font-weight: bold; font-size: 1.1rem;">${i.nome}</div>
+                <div style="color: #7f8c8d; font-size: 0.9rem;">
+                    ${i.gramasPedidas}g → <b>${i.qtdUnidades.toFixed(2)} potes</b>
+                    ${infoDestinatario}
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-mini" style="background:#27ae60; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="confirmarCompra(${i.idLista})">✅</button>
+                <button class="btn-mini" style="background:#e74c3c; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="removerLista(${i.idLista})">✕</button>
+            </div>
+        `;
+        cont.appendChild(itemRow);
+    });
+}
+
+// Certifique-se de que estas funções auxiliares também existam:
+function toggleItemLista(index) {
+    listaCompras[index].completado = !listaCompras[index].completado;
+    renderizarListaCompras();
+    salvarDados();
+}
+
+function removerItemLista(index) {
+    listaCompras.splice(index, 1);
+    renderizarListaCompras();
+    salvarDados();
 }
 
 function renderizarLista() {
     const cont = document.getElementById('lista-compras-pendentes');
+    if (!cont) return;
     cont.innerHTML = '';
-    if(listaCompras.length === 0) {
+
+    if (listaCompras.length === 0) {
         cont.innerHTML = '<p style="text-align:center; color:#95a5a6; margin-top:20px;">Nenhum item pendente.</p>';
         return;
     }
+
     listaCompras.forEach(i => {
-        const infoDestinatario = i.destinatario ? `<br><small>👤 Para: ${i.destinatario}</small>` : "";
-        cont.innerHTML += `<div class="item-row">
-            <div>
-                <div class="info-main">${i.nome}${infoDestinatario}</div>
-                <div class="info-sub">${i.gramasPedidas}g → <b>${i.qtdUnidades.toFixed(2)} potes</b></div>
+        // PROTEÇÃO: Garante que qtdUnidades seja um número
+        const unidades = parseFloat(i.qtdUnidades) || 0;
+        const gramas = i.gramasPedidas || 0;
+        
+        const infoDestinatario = i.destinatario ? `<br><small style="color:#e67e22;">👤 Para: ${i.destinatario}</small>` : "";
+        
+        const itemRow = document.createElement('div');
+        itemRow.className = 'item-row';
+        itemRow.style.cssText = `display: flex; justify-content: space-between; align-items: center; background: white; margin-bottom: 10px; padding: 15px; border-radius: 12px; border-left: 5px solid #e67e22; box-shadow: 0 2px 5px rgba(0,0,0,0.05);`;
+
+        itemRow.innerHTML = `
+            <div style="flex: 1;">
+                <div style="color: #2c3e50; font-weight: bold; font-size: 1.1rem;">${i.nome}</div>
+                <div style="color: #7f8c8d; font-size: 0.9rem;">
+                    ${gramas}g → <b>${unidades.toFixed(2)} potes</b>
+                    ${infoDestinatario}
+                </div>
             </div>
-            <div style="display:flex; gap:5px;">
-                <button class="btn-mini" style="background:var(--success)" onclick="confirmarCompra(${i.idLista})">✅</button>
-                <button class="btn-mini" style="background:var(--danger)" onclick="removerLista(${i.idLista})">✕</button>
-            </div>
-        </div>`;
+            <div style="display:flex; gap:10px;">
+                <button class="btn-mini" style="background:#27ae60; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="confirmarCompra(${i.idLista})">✅</button>
+                <button class="btn-mini" style="background:#e74c3c; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="removerLista(${i.idLista})">✕</button>
+            </div>`;
+        cont.appendChild(itemRow);
     });
 }
 
@@ -470,18 +671,28 @@ function adicionarAoCarrinho() {
 
 function atualizarCarrinhoUI() {
     const cont = document.getElementById('carrinho-itens');
+    if (!cont) return;
     cont.innerHTML = '';
     let total = 0;
+
     carrinho.forEach((c, index) => {
-        const sub = c.qtd * c.preco;
+        // PROTEÇÃO: Garante que preco e qtd sejam números
+        const preco = parseFloat(c.preco) || 0;
+        const qtd = parseFloat(c.qtd) || 1;
+        const sub = qtd * preco;
         total += sub;
+
         cont.innerHTML += `
             <div class="item-row">
-                <span>${c.qtd}x ${c.nome}</span>
-                <span>R$ ${sub.toFixed(2)} <button onclick="removerDoCarrinho(${index})" style="color:var(--danger); background:none; border:none; margin-left:10px; cursor:pointer">✕</button></span>
+                <span>${qtd}x ${c.nome}</span>
+                <span>R$ ${sub.toFixed(2)} 
+                    <button onclick="removerDoCarrinho(${index})" style="color:var(--danger); background:none; border:none; cursor:pointer">✕</button>
+                </span>
             </div>`;
     });
-    document.getElementById('v-total-carrinho').innerText = `R$ ${total.toFixed(2)}`;
+
+    const totalEl = document.getElementById('v-total-carrinho');
+    if (totalEl) totalEl.innerText = `R$ ${total.toFixed(2)}`;
 }
 
 function removerDoCarrinho(index) {
@@ -512,6 +723,7 @@ function finalizarVenda() {
     sincronizar();
     notify("Sucesso", status === 'pago' ? "Venda finalizada!" : "Registrada como devedor!", "success");
     showScreen('vendas');
+    atualizarIndicadoresDevedores()
 }
 
 function listarVendas() {
@@ -788,6 +1000,7 @@ async function carregarDadosReais() {
         // Fallback: tenta carregar do localStorage se o banco falhar
         produtos = JSON.parse(localStorage.getItem('sp_prods')) || [];
     }
+    atualizarIndicadoresDevedores()
 }
 function confirmarLoginVisita() {
     // 1. Define o objeto de segurança
@@ -1075,6 +1288,7 @@ async function carregarDadosReais() {
         console.error("Erro ao carregar dados do MongoDB:", e);
         if(typeof notify === "function") notify("Erro", "Não foi possível carregar os dados.", "danger");
     }
+    atualizarIndicadoresDevedores()
 }
 
 // --- FUNÇÃO PARA CRIAR UTILIZADOR (CHAMADA PELO BOTÃO) ---
@@ -1266,4 +1480,306 @@ function bloquearFuncoesVisita() {
         btn.style.filter = 'grayscale(100%)'; // Fica cinza
     });
 }
+function salvarLista() {
+    // Salva no LocalStorage do navegador
+    localStorage.setItem('sp_lista', JSON.stringify(listaCompras));
+    
+    // Sincroniza com o servidor/nuvem (se não for visitante)
+    if (typeof sincronizar === "function") {
+        sincronizar();
+    }
+    
+    // Atualiza a visualização na tela
+    renderizarLista();
+}
 
+function gerarListaPorEstoque(minimo) {
+    // 1. Limpamos a lista atual para não duplicar se o usuário clicar várias vezes
+    listaCompras = [];
+
+    // 2. Filtramos os produtos que estão abaixo do mínimo
+    produtos.forEach(p => {
+        const estoqueAtual = parseFloat(p.estoque) || 0;
+        
+        if (estoqueAtual < minimo) {
+            // Calculamos quanto falta para chegar no mínimo
+            const diferenca = minimo - estoqueAtual;
+            
+            // Criamos o item para a lista no formato que o seu sistema já usa
+            const novoItem = {
+                idLista: Date.now() + Math.random(), // ID único
+                idProd: p.id,
+                nome: p.nome,
+                destinatario: "Reposição de Estoque",
+                gramasPedidas: diferenca * p.gramas, // Ex: faltam 2 potes de 100g = 200g
+                qtdUnidades: diferenca // Quantidade de potes necessários
+            };
+            
+            listaCompras.push(novoItem);
+        }
+    });
+
+    // 3. Salvamos e mostramos na tela
+    salvarLista(); 
+
+    // Feedback para o usuário
+    if (listaCompras.length > 0) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Lista Gerada!',
+            text: `${listaCompras.length} itens precisam de reposição.`,
+            timer: 2000,
+            showConfirmButton: false
+        });
+    } else {
+        Swal.fire({
+            icon: 'info',
+            title: 'Estoque em dia!',
+            text: 'Nenhum produto está abaixo do limite informado.',
+            confirmButtonColor: '#e67e22'
+        });
+    }
+}
+async function abrirModalGerarLista() {
+    const { value: estoqueMinimo } = await Swal.fire({
+        title: 'Gerar por Estoque',
+        text: 'Produtos abaixo deste valor serão adicionados à lista.',
+        input: 'number',
+        inputLabel: 'Qual o estoque mínimo desejado?',
+        inputValue: 5, // Valor padrão sugerido
+        showCancelButton: true,
+        confirmButtonText: 'Gerar Lista',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#27ae60',
+        inputValidator: (value) => {
+            if (!value || value <= 0) {
+                return 'Por favor, insira um número maior que zero!';
+            }
+        }
+    });
+
+    if (estoqueMinimo) {
+        gerarListaPorEstoque(parseFloat(estoqueMinimo));
+    }
+}
+async function menuListaAutomatizada() {
+    const { value: acao } = await Swal.fire({
+        title: 'Gestão de Produção',
+        text: 'O que deseja fazer?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '🚀 Gerar por Estoque',
+        denyButtonText: '📄 Baixar PDF',
+        showDenyButton: true,
+        confirmButtonColor: '#27ae60',
+        denyButtonColor: '#e67e22'
+    });
+
+    if (acao === true) {
+        abrirModalGerarLista();
+    } else if (acao === false) {
+        gerarPDFListaCompras(); // Sua função de PDF existente
+    }
+}
+function gerarPDFListaCompras() {
+    if (listaCompras.length === 0) {
+        return Swal.fire("Lista Vazia", "Não há itens para gerar o PDF.", "info");
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Título do Documento
+    doc.setFontSize(18);
+    doc.setTextColor(230, 126, 34); // Cor Laranja SpiceManager
+    doc.text("Lista de Compras - Produção", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Gerado em: ${new Date().toLocaleString()}`, 14, 28);
+
+    // Preparação dos dados: Nome e Gramas
+    // Aqui somamos as gramas caso o mesmo produto apareça mais de uma vez na lista
+    const resumo = {};
+    listaCompras.forEach(item => {
+        if (resumo[item.nome]) {
+            resumo[item.nome] += (parseFloat(item.gramasPedidas) || 0);
+        } else {
+            resumo[item.nome] = (parseFloat(item.gramasPedidas) || 0);
+        }
+    });
+
+    const rows = Object.keys(resumo).map(nome => [
+        nome, 
+        `${resumo[nome]}g`
+    ]);
+
+    // Gerar a Tabela (Apenas Nome e Gramas)
+    doc.autoTable({
+        startY: 35,
+        head: [['Produto', 'Total para Compra (Gramas)']],
+        body: rows,
+        headStyles: { fillColor: [230, 126, 34] }, // Cabeçalho Laranja
+        styles: { fontSize: 12, cellPadding: 5 },
+        columnStyles: {
+            0: { cellWidth: 120 }, // Nome mais largo
+            1: { cellWidth: 60, halign: 'right' } // Gramas à direita
+        }
+    });
+
+    // Salvar o arquivo
+    doc.save(`Lista_de_Compras_${Date.now()}.pdf`);
+}
+function atualizarIndicadoresDevedores() {
+    // Filtra vendas com status diferente de 'pago' (ajuste o nome do status se necessário)
+    const totalDevedores = vendas
+        .filter(v => v.status !== 'pago') 
+        .reduce((acc, v) => acc + (parseFloat(v.total) || 0), 0);
+
+    const valorFormatado = `R$ ${totalDevedores.toFixed(2)}`;
+
+    // Atualiza no Dashboard
+    const elDash = document.getElementById('indicador-devedores-dash');
+    if (elDash) elDash.innerText = valorFormatado;
+
+    // Atualiza na Área de Vendas
+    const elVendas = document.getElementById('indicador-devedores-vendas');
+    if (elVendas) elVendas.innerText = `Devedores: ${valorFormatado}`;
+}
+
+
+// Função para carregar e mostrar a lista de usuários
+async function renderizarGestaoUsuarios() {
+    if (!usuarioLogado || usuarioLogado.tipo !== 'admin') return;
+    const cont = document.getElementById('lista-usuarios-gestao');
+    if (!cont) return;
+
+    try {
+        const res = await fetch(`${API_URL}/usuarios`);
+        const usuarios = await res.json();
+        cont.innerHTML = ''; 
+
+        usuarios.forEach(u => {
+            if (u.user === 'admin') return; 
+
+            const card = document.createElement('div');
+            card.className = 'item-row';
+            card.style.cssText = `background:white; padding:12px; border-radius:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border:1px solid #eee;`;
+
+            // REMOVI espaços e usei o ID limpo
+            card.innerHTML = `
+                <div>
+                    <div style="font-weight:bold;">${u.user.toUpperCase()}</div>
+                    <div style="font-size:0.75rem; color:#777;">Acessos: ${u.permissoes.join(', ')}</div>
+                </div>
+                <button onclick="deletarUsuario('${u._id}')" style="background:#fff5f5; border:1px solid #feb2b2; color:#c53030; padding:5px 10px; border-radius:6px; cursor:pointer;">
+                    Excluir
+                </button>
+            `;
+            cont.appendChild(card);
+        });
+    } catch (e) { console.error("Erro ao listar:", e); }
+}
+
+async function deletarUsuario(id) {
+    const confirmacao = await Swal.fire({
+        title: 'Excluir usuário?',
+        text: "Esta ação removerá o acesso permanentemente.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sim, excluir'
+    });
+
+    if (confirmacao.isConfirmed) {
+        try {
+            // Garantimos que não há barras duplas na URL
+            const urlFinal = `${API_URL}/usuarios/${id}`.replace(/([^:]\/)\/+/g, "$1");
+            
+            const res = await fetch(urlFinal, { 
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (res.ok) {
+                Swal.fire('Sucesso', 'Utilizador removido.', 'success');
+                renderizarGestaoUsuarios(); 
+            } else {
+                const erroData = await res.json();
+                Swal.fire('Erro', erroData.message || 'Erro ao excluir.', 'error');
+            }
+        } catch (e) {
+            Swal.fire('Erro', 'Falha na conexão com o servidor.', 'error');
+        }
+    }
+}
+// Função para deletar usuário
+async function deletarUsuario(id) {
+    const confirmacao = await Swal.fire({
+        title: 'Excluir usuário?',
+        text: "O acesso será removido permanentemente.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sim, excluir'
+    });
+
+    if (confirmacao.isConfirmed) {
+        try {
+            // 1. Limpa o ID de qualquer espaço ou caractere estranho
+            const idLimpo = id.trim().replace(':', '');
+            
+            // 2. Garante que a URL não tenha barras duplas (ex: api//usuarios)
+            const urlBase = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+            const urlFinal = `${urlBase}/usuarios/${idLimpo}`;
+
+            console.log("Tentando DELETE em:", urlFinal);
+
+            const res = await fetch(urlFinal, { 
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (res.ok) {
+                Swal.fire('Sucesso', 'Usuário removido.', 'success');
+                renderizarGestaoUsuarios(); 
+            } else {
+                const erroData = await res.json();
+                Swal.fire('Erro', erroData.message || 'Erro ao excluir.', 'error');
+            }
+        } catch (e) {
+            Swal.fire('Erro', 'Falha na conexão com o servidor.', 'error');
+        }
+    }
+}
+async function salvarNovoUsuario() {
+    const user = document.getElementById('new-user-name').value;
+    const pass = document.getElementById('new-user-pass').value;
+    const checks = document.querySelectorAll('.perm-check:checked');
+    const permissoes = Array.from(checks).map(c => c.value);
+
+    if (!user || !pass) {
+        return Swal.fire("Ops", "Nome e senha são obrigatórios", "warning");
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/save-user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user, pass, tipo: 'restrito', permissoes })
+        });
+
+        if (res.ok) {
+            Swal.fire("Sucesso", "Novo usuário cadastrado!", "success");
+            // Limpa os campos
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-pass').value = '';
+            renderizarGestaoUsuarios(); // Atualiza a lista na tela
+        } else {
+            const erro = await res.json();
+            Swal.fire("Erro", erro.message, "error");
+        }
+    } catch (e) {
+        Swal.fire("Erro", "Falha na comunicação com o servidor", "error");
+    }
+}
