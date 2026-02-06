@@ -24,9 +24,8 @@ mongoose.connect(MONGO_URI)
 
 // --- DEFINIÇÃO DOS MODELOS DE DADOS ---
 
-// 1. Modelo para Dados Gerais (Produtos, Vendas, etc)
 const AppDataSchema = new mongoose.Schema({
-    chave: { type: String, default: "principal" },
+    chave: { type: String, required: true, unique: true }, // "principal" ou "visita"
     produtos: { type: Array, default: [] },
     vendas: { type: Array, default: [] },
     listaCompras: { type: Array, default: [] },
@@ -35,7 +34,6 @@ const AppDataSchema = new mongoose.Schema({
 });
 const AppData = mongoose.model('AppData', AppDataSchema);
 
-// 2. Modelo para Usuários (Isso cria a "tabela" de usuários automaticamente)
 const UsuarioSchema = new mongoose.Schema({
     user: { type: String, required: true, unique: true },
     pass: { type: String, required: true },
@@ -46,38 +44,51 @@ const UsuarioSchema = new mongoose.Schema({
 const Usuario = mongoose.model('Usuario', UsuarioSchema);
 
 
-// --- ROTAS DA API ---
+// --- ROTAS DA API ATUALIZADAS ---
 
-// ROTA: Buscar dados gerais
-app.get('/api/data', async (req, res) => {
+// ROTA: Buscar dados por CHAVE (carregar principal ou visita)
+app.get('/api/load/:chave', async (req, res) => {
     try {
-        let data = await AppData.findOne({ chave: "principal" });
-        if (!data) {
+        const { chave } = req.params;
+        let data = await AppData.findOne({ chave: chave });
+        
+        // Se não existir o documento e for o principal, cria um novo
+        if (!data && chave === "principal") {
             data = new AppData({ chave: "principal" });
             await data.save();
         }
-        res.json(data);
+        
+        res.json(data || {});
     } catch (err) {
         res.status(500).send("Erro ao buscar dados");
     }
 });
 
-// ROTA: Salvar dados gerais (Produtos/Vendas)
-app.post('/api/save', async (req, res) => {
+// ROTA: Salvar dados por CHAVE (com bloqueio para visita)
+app.post('/api/save/:chave', async (req, res) => {
     try {
+        const { chave } = req.params;
+
+        // SEGURANÇA: Impede qualquer gravação se a chave for 'visita'
+        if (chave === "visita") {
+            return res.status(403).send("Acesso negado: O modo visita não pode alterar o banco de dados.");
+        }
+
         const { produtos, vendas, listaCompras, config } = req.body;
+        
         await AppData.findOneAndUpdate(
-            { chave: "principal" },
+            { chave: chave },
             { produtos, vendas, listaCompras, config, lastUpdate: new Date() },
             { upsert: true }
         );
+        
         res.status(200).send("Dados sincronizados com sucesso!");
     } catch (err) {
         res.status(500).send("Erro ao salvar dados");
     }
 });
 
-// ROTA: Listar todos os usuários (Usado no Login)
+// ROTA: Listar todos os usuários
 app.get('/api/usuarios', async (req, res) => {
     try {
         const usuarios = await Usuario.find();
@@ -92,7 +103,6 @@ app.post('/api/save-user', async (req, res) => {
     try {
         const { user, pass, tipo, permissoes } = req.body;
 
-        // Verifica se o usuário já existe
         const existe = await Usuario.findOne({ user: user.toLowerCase().trim() });
         if (existe) {
             return res.status(400).json({ message: "Este utilizador já existe!" });
