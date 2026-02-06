@@ -220,3 +220,36 @@ input, select, textarea {
 .detail-item .icon { font-size: 1.2rem; }
 .detail-item .val { font-weight: bold; font-size: 0.85rem; display: block; }
 .list-small { font-size: 0.75rem; color: #7f8c8d; line-height: 1.2; margin-top: 3px; }
+
+.controles-qtd {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #eee;
+    padding: 5px;
+    border-radius: 20px;
+}
+
+.btn-qty {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-qty:active {
+    transform: scale(0.9);
+}
+
+.qtd-valor {
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
+}
