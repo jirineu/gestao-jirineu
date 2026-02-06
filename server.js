@@ -123,7 +123,30 @@ app.post('/api/save-user', async (req, res) => {
         res.status(500).json({ message: "Erro interno ao salvar no banco." });
     }
 });
+// ROTA PARA EXCLUIR UTILIZADOR
+app.delete('/api/usuarios/:id', async (req, res) => {
+    try {
+        // O replace(':','') é vital se o erro 404 persistir
+        const id = req.params.id.replace(':', '').trim();
+        
+        console.log("Servidor recebeu pedido para excluir ID:", id);
 
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: "ID inválido formatado" });
+        }
+
+        const deletado = await Usuario.findByIdAndDelete(id);
+        
+        if (!deletado) {
+            return res.status(404).json({ message: "Usuário não encontrado no banco" });
+        }
+
+        res.status(200).json({ message: "Utilizador removido com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao excluir:", err);
+        res.status(500).json({ message: "Erro interno no servidor." });
+    }
+});
 // Inicialização do Servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
