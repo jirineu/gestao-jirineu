@@ -1,3 +1,4 @@
+require('dotenv').config(); // Linha necessária para ler o .env
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -8,13 +9,8 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// --- CONFIGURAÇÃO DO MONGODB ---
-const dbUser = "admin_jirineu";
-const dbPass = "Freego123";
-const dbName = "jirineu_vendas";
-const clusterUrl = "cluster0.cqkouvg.mongodb.net";
-
-const MONGO_URI = `mongodb+srv://${dbUser}:${dbPass}@${clusterUrl}/${dbName}?retryWrites=true&w=majority&appName=Cluster0`;
+// --- CONFIGURAÇÃO DO MONGODB (MODIFICADO PARA .ENV) ---
+const MONGO_URI = process.env.MONGO_URI;
 
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ Conectado ao MongoDB Atlas (Nuvem) com sucesso!"))
@@ -52,7 +48,6 @@ app.get('/api/load/:chave', async (req, res) => {
         const { chave } = req.params;
         let data = await AppData.findOne({ chave: chave });
         
-        // Se não existir o documento e for o principal, cria um novo
         if (!data && chave === "principal") {
             data = new AppData({ chave: "principal" });
             await data.save();
@@ -69,7 +64,6 @@ app.post('/api/save/:chave', async (req, res) => {
     try {
         const { chave } = req.params;
 
-        // SEGURANÇA: Impede qualquer gravação se a chave for 'visita'
         if (chave === "visita") {
             return res.status(403).send("Acesso negado: O modo visita não pode alterar o banco de dados.");
         }
@@ -123,14 +117,12 @@ app.post('/api/save-user', async (req, res) => {
         res.status(500).json({ message: "Erro interno ao salvar no banco." });
     }
 });
+
 // ROTA PARA EXCLUIR UTILIZADOR
 app.delete('/api/usuarios/:id', async (req, res) => {
     try {
-        // O replace(':','') é vital se o erro 404 persistir
         const id = req.params.id.replace(':', '').trim();
         
-        console.log("Servidor recebeu pedido para excluir ID:", id);
-
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: "ID inválido formatado" });
         }
@@ -147,6 +139,7 @@ app.delete('/api/usuarios/:id', async (req, res) => {
         res.status(500).json({ message: "Erro interno no servidor." });
     }
 });
+
 // Inicialização do Servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
