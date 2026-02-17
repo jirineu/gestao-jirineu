@@ -187,6 +187,17 @@ function showScreen(id, btn) {
     if (usuarioLogado && usuarioLogado.isGuest) {
         setTimeout(() => { bloquearFuncoesVisita(); }, 100);
     }
+    // 4. Gatilhos de carregamento
+    if(id === 'add') aplicarPrecoPadrao();
+    if(id === 'estoque') listarEstoque();
+    if(id === 'vendas') listarVendas();
+    if(id === 'dash') atualizarDash();
+    
+    // ALTERAÇÃO AQUI:
+    if(id === 'lista') {
+        abrirListaCompras();
+        atualizarSelectsProdutos(); // <--- Adicione esta linha aqui
+    }
 }
 // --- CONFIGURAÇÕES ---
 function salvarConfig() {
@@ -292,8 +303,9 @@ function renderizarLista() {
             </div>
         </div>
         <div style="display:flex; gap:10px;">
-            <button class="btn-mini" style="background:#27ae60; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="confirmarCompra(${i.idLista})">✅</button>
-            <button class="btn-mini" style="background:#e74c3c; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="removerLista(${i.idLista})">✕</button>
+       <button class="btn-mini" style="background:#27ae60; color:white; border:none; border-radius:5px; width:35px; height:35px; cursor:pointer; font-weight:bold;" onclick="confirmarCompra(${i.idLista})">V</button>
+
+<button class="btn-mini" style="background:#e74c3c; color:white; border:none; border-radius:5px; width:35px; height:35px; cursor:pointer; font-weight:bold;" onclick="removerLista(${i.idLista})">✕</button>
         </div>
     `;
     cont.appendChild(itemRow);
@@ -347,8 +359,9 @@ function renderizarLista() {
             ${infoDestinatario}
         </div>
         <div style="display:flex; gap:10px;">
-            <button class="btn-mini" style="background:#27ae60; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="confirmarCompra(${i.idLista})">✅</button>
-            <button class="btn-mini" style="background:#e74c3c; border:none; border-radius:5px; padding:8px; cursor:pointer;" onclick="removerLista(${i.idLista})">✕</button>
+           <button class="btn-mini" style="background:#27ae60; color:white; border:none; border-radius:5px; width:35px; height:35px; cursor:pointer; font-weight:bold;" onclick="confirmarCompra(${i.idLista})">V</button>
+
+<button class="btn-mini" style="background:#e74c3c; color:white; border:none; border-radius:5px; width:35px; height:35px; cursor:pointer; font-weight:bold;" onclick="removerLista(${i.idLista})">✕</button>
         </div>`;
     cont.appendChild(itemRow);
 });
@@ -506,8 +519,13 @@ function cancelarEdicao() {
 
 // --- INVENTÁRIO PESADO ---
 function abrirPainelInventario() {
-    const sel = document.getElementById('inv-produto-select');
-    sel.innerHTML = produtos.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+    // 1. Atualiza a lista com a nova lógica alfabética e moderna
+    atualizarSelectsProdutos();
+    
+    // 2. Limpa os campos de input do inventário (bom para evitar lixo de aberturas anteriores)
+    const inputQtd = document.getElementById('inv-qtd-real');
+    if(inputQtd) inputQtd.value = '';
+    
     showScreen('inventario');
 }
 
@@ -584,8 +602,10 @@ function gerarRelatorioPDF() {
 function abrirNovaVenda() {
     carrinho = [];
     document.getElementById('v-cliente-nome').value = '';
-    const sel = document.getElementById('v-produto-select');
-    sel.innerHTML = produtos.map(p => `<option value="${p.id}">${p.nome} (Disponível: ${p.estoque})</option>`).join('');
+    
+    // Chama a função global que organiza e estiliza
+    atualizarSelectsProdutos();
+    
     atualizarCarrinhoUI();
     showScreen('nova-venda');
 }
@@ -668,18 +688,30 @@ function finalizarVenda() {
 
 function listarVendas() {
     const cont = document.getElementById('lista-vendas-realizadas');
+    const termo = document.getElementById('busca-venda').value.toLowerCase();
+    const btnSomar = document.getElementById('btn-somar-devedores');
+    
     cont.innerHTML = '';
 
-    vendas.slice().reverse().forEach(v => {
+    // Mostra o botão se houver pesquisa, esconde se estiver vazio
+    btnSomar.style.display = termo.length > 0 ? "block" : "none";
+
+    const vendasFiltradas = vendas.filter(v => {
+        const nomeCliente = (v.cliente || "").toLowerCase();
+        const dataF = new Date(v.dataISO).toLocaleString('pt-BR').toLowerCase();
+        return nomeCliente.includes(termo) || dataF.includes(termo);
+    });
+
+    vendasFiltradas.slice().reverse().forEach(v => {
+        // ... (Mantenha o resto do seu código de renderização que você já tem aqui) ...
         const dataF = new Date(v.dataISO).toLocaleString('pt-BR');
         const isPago = v.status === 'pago';
         const corStatus = isPago ? '#27ae60' : '#e67e22';
         const labelStatus = isPago ? 'PAGO' : 'DEVEDOR';
-
         const botaoBaixa = !isPago ? `<button class="btn-mini" style="background:#27ae60" onclick="darBaixaVenda(${v.id})">Baixa</button>` : '';
 
         cont.innerHTML += `
-            <div class="item-row" style="border-left: 5px solid ${corStatus}">
+            <div class="item-row venta-item" data-devedor="${!isPago}" data-valor="${v.total}" style="border-left: 5px solid ${corStatus}">
                 <div style="flex-grow: 1;">
                     <div class="info-main">${v.cliente} <small style="color:${corStatus}">(${labelStatus})</small></div>
                     <div class="info-sub">${dataF} | <b>Total: R$ ${v.total.toFixed(2)}</b></div>
@@ -690,6 +722,27 @@ function listarVendas() {
                     <button onclick="estornarVenda(${v.id})" style="color:var(--danger); border:none; background:none; font-weight:bold;">Estornar</button>
                 </div>
             </div>`;
+    });
+}
+function somarResultadosDevedores() {
+    const termo = document.getElementById('busca-venda').value.toLowerCase();
+    
+    // Filtramos novamente as vendas baseadas no termo atual
+    const vendasFiltradas = vendas.filter(v => {
+        const nomeCliente = (v.cliente || "").toLowerCase();
+        return nomeCliente.includes(termo);
+    });
+
+    // Somamos apenas as que possuem status diferente de 'pago'
+    const totalDevedor = vendasFiltradas
+        .filter(v => v.status !== 'pago')
+        .reduce((acc, v) => acc + v.total, 0);
+
+    Swal.fire({
+        title: 'Soma de Devedores',
+        html: `Para a pesquisa <b>"${termo}"</b>:<br><br>Total a receber: <b style="color:#e67e22; font-size: 1.5rem;">R$ ${totalDevedor.toFixed(2)}</b>`,
+        icon: 'info',
+        confirmButtonColor: '#e67e22'
     });
 }
 
@@ -920,27 +973,32 @@ async function validarAdmin() {
 // --- FUNÇÃO QUE BUSCA DADOS NO RENDER (BANCO ONLINE) ---
 async function carregarDadosReais() {
     try {
-        const res = await fetch(`${API_URL}/data`); 
+        // Busca os dados na rota do seu server.js
+        const res = await fetch(`${API_URL}/load/principal`); 
         const data = await res.json();
         
         if (data) {
             produtos = data.produtos || [];
             vendas = data.vendas || [];
-            listaCompras = data.listaCompras || [];
-            configs = data.configs || { valorFixo: 0 };
             
-            // Se o banco também trouxer a lista de utilizadores cadastrados
+            // ESSENCIAL: Carrega a lista do banco para não sumir ao dar F5
+            listaCompras = data.listaCompras || []; 
+            
+            configs = data.configs || data.config || { valorFixo: 0 };
             usuariosCadastrados = data.usuarios || [];
 
             renderizarTudo();
-            console.log("Dados do MongoDB carregados com sucesso.");
+            console.log("Dados sincronizados com o banco com sucesso.");
         }
     } catch (e) {
-        console.error("Erro ao conectar com o banco online:", e);
-        // Fallback: tenta carregar do localStorage se o banco falhar
-        produtos = JSON.parse(localStorage.getItem('sp_prods')) || [];
+        console.error("Erro ao carregar dados reais:", e);
+        // Fallback: busca do backup local se a internet falhar
+        listaCompras = JSON.parse(localStorage.getItem('sp_lista')) || [];
     }
-    atualizarIndicadoresDevedores()
+    
+    // Atualiza indicadores e os seus seletores com a função que você mandou
+    atualizarIndicadoresDevedores();
+    atualizarSelectsProdutos(); 
 }
 function confirmarLoginVisita() {
     // 1. Define o objeto de segurança
@@ -1207,28 +1265,33 @@ function efetuarLogout() {
 }
 // --- FUNÇÃO PARA CARREGAR DADOS (ADMIN) ---
 async function carregarDadosReais() {
-    // 1. Identifica qual chave buscar (visita ou principal)
-    const chave = (usuarioLogado && usuarioLogado.isGuest) ? "visita" : "principal";
-    
     try {
-        // 2. Faz a chamada para a nova rota parametrizada
-        const res = await fetch(`${API_URL}/load/${chave}`);
-        const dados = await res.json();
-
-        if (dados) {
-            // Alimenta as variáveis globais com os dados do banco
-            produtos = dados.produtos || [];
-            vendas = dados.vendas || [];
-            listaCompras = dados.listaCompras || [];
-            configs = dados.config || {};
+        const res = await fetch(`${API_URL}/load/principal`); 
+        const data = await res.json();
+        
+        if (data) {
+            produtos = data.produtos || [];
+            vendas = data.vendas || [];
+            listaCompras = data.listaCompras || []; 
+            configs = data.configs || data.config || { valorFixo: 0 };
             
             renderizarTudo();
+            
+            // AGORA O PONTO CHAVE:
+            // Forçamos a atualização dos selects logo após os dados chegarem
+            atualizarSelectsProdutos(); 
+            
+            console.log("Dados sincronizados com o banco com sucesso.");
         }
     } catch (e) {
-        console.error("Erro ao carregar dados do MongoDB:", e);
-        if(typeof notify === "function") notify("Erro", "Não foi possível carregar os dados.", "danger");
+        console.error("Erro ao carregar dados reais:", e);
+        listaCompras = JSON.parse(localStorage.getItem('sp_lista')) || [];
+        renderizarLista(); // Garante que a lista apareça mesmo offline
     }
-    atualizarIndicadoresDevedores()
+    
+    atualizarIndicadoresDevedores();
+    // Chamamos novamente aqui por garantia para o caso de elementos que demoram a carregar
+    setTimeout(atualizarSelectsProdutos, 500); 
 }
 
 // --- FUNÇÃO PARA CRIAR UTILIZADOR (CHAMADA PELO BOTÃO) ---
@@ -1434,48 +1497,56 @@ function salvarLista() {
 }
 
 function gerarListaPorEstoque(minimo) {
-    // 1. Limpamos a lista atual para não duplicar se o usuário clicar várias vezes
-    listaCompras = [];
+    // 1. COMENTAMOS OU REMOVEMOS A LINHA ABAIXO:
+    // listaCompras = []; // Isso era o que apagava sua lista anterior
+
+    let itensAdicionados = 0;
 
     // 2. Filtramos os produtos que estão abaixo do mínimo
     produtos.forEach(p => {
         const estoqueAtual = parseFloat(p.estoque) || 0;
         
         if (estoqueAtual < minimo) {
-            // Calculamos quanto falta para chegar no mínimo
-            const diferenca = minimo - estoqueAtual;
+            // VERIFICAÇÃO EXTRA: 
+            // Só adiciona se o produto já não estiver na lista, para não duplicar o mesmo item
+            const jaEstaNaLista = listaCompras.find(item => item.idProd === p.id);
             
-            // Criamos o item para a lista no formato que o seu sistema já usa
-            const novoItem = {
-                idLista: Date.now() + Math.random(), // ID único
-                idProd: p.id,
-                nome: p.nome,
-                destinatario: "Reposição de Estoque",
-                gramasPedidas: diferenca * p.gramas, // Ex: faltam 2 potes de 100g = 200g
-                qtdUnidades: diferenca // Quantidade de potes necessários
-            };
-            
-            listaCompras.push(novoItem);
+            if (!jaEstaNaLista) {
+                const diferenca = minimo - estoqueAtual;
+                
+                const novoItem = {
+                    idLista: Date.now() + Math.random(),
+                    idProd: p.id,
+                    nome: p.nome,
+                    destinatario: "Reposição de Estoque",
+                    gramasPedidas: diferenca * p.gramas,
+                    qtdUnidades: diferenca
+                };
+                
+                listaCompras.push(novoItem);
+                itensAdicionados++;
+            }
         }
     });
 
-    // 3. Salvamos e mostramos na tela
+    // 3. Salvamos e atualizamos a tela
     salvarLista(); 
+    renderizarLista(); // Garante que a tela mostre os novos itens imediatamente
 
     // Feedback para o usuário
-    if (listaCompras.length > 0) {
+    if (itensAdicionados > 0) {
         Swal.fire({
             icon: 'success',
-            title: 'Lista Gerada!',
-            text: `${listaCompras.length} itens precisam de reposição.`,
+            title: 'Lista Atualizada!',
+            text: `${itensAdicionados} novos itens foram adicionados à sua lista existente.`,
             timer: 2000,
             showConfirmButton: false
         });
     } else {
         Swal.fire({
             icon: 'info',
-            title: 'Estoque em dia!',
-            text: 'Nenhum produto está abaixo do limite informado.',
+            title: 'Nada a adicionar',
+            text: 'Os produtos que precisam de reposição já estão na lista ou seu estoque está em dia.',
             confirmButtonColor: '#e67e22'
         });
     }
@@ -1724,4 +1795,46 @@ function ajustarQtdLista(index, delta) {
 
     sincronizar(); // Salva as alterações no banco/nuvem
     renderizarLista(); // Atualiza a lista na tela para mostrar o novo valor
+}
+function atualizarSelectsProdutos() {
+    // 1. Verificação de Segurança: Se não houver produtos carregados, não tenta renderizar
+    if (!produtos || produtos.length === 0) {
+        console.warn("Aguardando carregamento de produtos para atualizar selects...");
+        return;
+    }
+
+    const selVenda = document.getElementById('v-produto-select');
+    const selInv = document.getElementById('inv-produto-select');
+    const selProd = document.getElementById('li-produto-select');
+
+    // 2. Ordenação Alfabética (A-Z)
+    const produtosOrdenados = [...produtos].sort((a, b) => 
+        (a.nome || "").localeCompare((b.nome || ""), 'pt', { sensitivity: 'base' })
+    );
+
+    const popularEstilizar = (campo, textoPadrao) => {
+        // Se o elemento não existir na tela atual, a função apenas ignora e não trava o script
+        if (!campo) return; 
+        
+        campo.innerHTML = `<option value="">🔍 ${textoPadrao}</option>` + 
+            produtosOrdenados.map(p => 
+                `<option value="${p.id}">${(p.nome || "S/ NOME").toUpperCase()} - (Estoque: ${p.estoque || 0})</option>`
+            ).join('');
+
+        // Aplica os estilos que você definiu
+        campo.style.backgroundColor = "#ffffff";
+        campo.style.border = "1px solid #ddd";
+        campo.style.borderRadius = "10px";
+        campo.style.padding = "10px";
+        campo.style.fontSize = "16px";
+        campo.style.color = "#333";
+        campo.style.width = "100%";
+        campo.style.marginBottom = "15px";
+        campo.style.appearance = "none"; // Remove estilo padrão do navegador
+    };
+
+    // 3. Execução
+    popularEstilizar(selVenda, "Buscar tempero (Venda)...");
+    popularEstilizar(selInv, "Selecionar para Inventário...");
+    popularEstilizar(selProd, "Selecionar para Produção...");
 }
