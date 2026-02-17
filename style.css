@@ -253,3 +253,47 @@ input, select, textarea {
     min-width: 20px;
     text-align: center;
 }
+/* Deixa o seletor de produtos com visual moderno e limpo */
+#v-produto-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23e67e22' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+    padding-right: 30px !important;
+}
+#v-produto-select {
+    height: 48px !important;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* Estilo específico para o botão de confirmar compra/produção */
+.btn-confirmar-lista {
+    background-color: var(--success); /* Usa o verde #27ae60 que você já tem */
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%; /* Ocupa a largura total da área */
+    margin-top: 10px;
+    transition: background 0.3s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: var(--shadow);
+}
+
+.btn-confirmar-lista:active {
+    transform: scale(0.98); /* Efeito de apertar */
+    background-color: #219150; /* Um verde levemente mais escuro */
+}
+
+.btn-confirmar-lista i {
+    font-style: normal; /* Para ícones de emoji ou font-awesome */
+}
