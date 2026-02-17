@@ -1,18 +1,18 @@
-require('dotenv').config(); // Linha necessária para ler o .env
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+
+import express, { json } from 'express';
+import { connect, Schema, model, Types } from 'mongoose';
+import cors from 'cors';
 
 const app = express();
 
 // Configurações iniciais
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+app.use(json({ limit: '50mb' }));
 
 // --- CONFIGURAÇÃO DO MONGODB (MODIFICADO PARA .ENV) ---
 const MONGO_URI = process.env.MONGO_URI;
 
-mongoose.connect(MONGO_URI)
+connect(MONGO_URI)
     .then(() => console.log("✅ Conectado ao MongoDB Atlas (Nuvem) com sucesso!"))
     .catch(err => {
         console.error("❌ Erro fatal ao conectar ao MongoDB:", err.message);
@@ -20,7 +20,7 @@ mongoose.connect(MONGO_URI)
 
 // --- DEFINIÇÃO DOS MODELOS DE DADOS ---
 
-const AppDataSchema = new mongoose.Schema({
+const AppDataSchema = new Schema({
     chave: { type: String, required: true, unique: true }, // "principal" ou "visita"
     produtos: { type: Array, default: [] },
     vendas: { type: Array, default: [] },
@@ -28,16 +28,16 @@ const AppDataSchema = new mongoose.Schema({
     config: { type: Object, default: {} },
     lastUpdate: { type: Date, default: Date.now }
 });
-const AppData = mongoose.model('AppData', AppDataSchema);
+const AppData = model('AppData', AppDataSchema);
 
-const UsuarioSchema = new mongoose.Schema({
+const UsuarioSchema = new Schema({
     user: { type: String, required: true, unique: true },
     pass: { type: String, required: true },
     tipo: { type: String, default: "restrito" },
     permissoes: { type: Array, default: [] },
     criadoEm: { type: Date, default: Date.now }
 });
-const Usuario = mongoose.model('Usuario', UsuarioSchema);
+const Usuario = model('Usuario', UsuarioSchema);
 
 
 // --- ROTAS DA API ATUALIZADAS ---
@@ -123,7 +123,7 @@ app.delete('/api/usuarios/:id', async (req, res) => {
     try {
         const id = req.params.id.replace(':', '').trim();
         
-        if (!mongoose.Types.ObjectId.isValid(id)) {
+        if (!Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: "ID inválido formatado" });
         }
 
