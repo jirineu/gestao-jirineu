@@ -50,14 +50,6 @@
     <main id="app-container">
         <section id="screen-dash" class="screen active">
             <h2 class="section-title">📊 Dashboard</h2>
-            <div style="background: #fff; padding: 10px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #e67e22; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-        <p style="font-size: 0.8rem; color: #666; margin-bottom: 5px;">Acessar versão anterior:</p>
-        <a href="https://jirineu.github.io/SistemaVEndasLoja/" 
-           target="_blank" 
-           style="color: #e67e22; font-weight: bold; text-decoration: none; display: flex; align-items: center; gap: 8px;">
-           🔗 Ir para Sistema Vendas Loja
-        </a>
-    </div>
             <div class="card">
                 <label for="dash-periodo">Filtrar Período</label>
                 <select id="dash-periodo" class="custom-select" onchange="atualizarDash()">
@@ -175,6 +167,8 @@
    ⚙️ Lista Automatizada
 </button>
 </div>
+    
+ 
 </div>
             <div class="card">
                 <div class="input-group">
@@ -236,10 +230,16 @@
     Devedores: R$ 0,00
 </div>
                 <button class="btn-action" onclick="abrirNovaVenda()">Nova Venda</button>
-            </div>
+            </div> 
+       
             <div class="search-box">
                 <input type="text" id="busca-venda" placeholder="🔍 Cliente ou Data..." onkeyup="listarVendas()">
+                             <button id="btn-somar-devedores" onclick="somarResultadosDevedores()" style=" background: var(--success); color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer;">
+        🧮 Somar
+    </button>
+   
             </div>
+            
             <div id="lista-vendas-realizadas" class="list-container"></div>
         </section>
 
@@ -250,6 +250,7 @@
                     <label>Nome do Cliente</label>
                     <input type="text" id="v-cliente-nome" placeholder="Opcional">
                 </div>
+                
                 <div class="cart-selector" style="background: #f9f9f9; padding: 10px; border-radius: 8px;">
                     <label>Produto</label>
                     <select id="v-produto-select" class="custom-select" style="margin-bottom: 10px;"></select>
@@ -333,5 +334,4 @@
     <script src="script.js"></script>
 </body>
 </html>
-
 
