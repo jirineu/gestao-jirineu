@@ -598,6 +598,50 @@ function gerarRelatorioPDF() {
     doc.save(`relatorio_${new Date().getTime()}.pdf`);
 }
 
+function gerarPDFCompras() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Cabeçalho do PDF
+    doc.setFontSize(18);
+    doc.text("Tabela de Preços", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.text(`Data de emissão: ${new Date().toLocaleDateString('pt-BR')}`, 14, 28);
+
+    // Mapeamento dos dados
+    const linhas = produtos.map(p => {
+        const nome = p.nome || "Produto sem nome";
+        const estoque = p.estoque !== undefined ? p.estoque : "0";
+        const gramas = p.gramas ? `${p.gramas}g` : "---";
+        
+        // Ajustado para p.venda conforme sua orientação
+        const valorVenda = p.venda ? parseFloat(p.venda) : 0;
+
+        return [
+            nome,
+            estoque,
+            gramas,
+            `R$ ${valorVenda.toFixed(2)}`
+        ];
+    });
+
+    // Criando a tabela no PDF
+    doc.autoTable({
+        startY: 35,
+        head: [['Produto', 'Estoque', 'Peso (un)', 'Preço Venda']],
+        body: linhas,
+        theme: 'grid',
+        headStyles: { fillColor: [46, 204, 113] }, // Verde para o padrão do sistema
+        styles: { halign: 'center' },
+        columnStyles: { 
+            0: { halign: 'left', cellWidth: 80 }, // Coluna do nome mais larga
+        }
+    });
+
+    // Salva o arquivo com o nome do sistema
+    doc.save("lista_compras_jirineu.pdf");
+}
 // --- VENDAS ---
 function abrirNovaVenda() {
     carrinho = [];
@@ -816,9 +860,32 @@ function atualizarDash() {
     document.getElementById('dash-prod-top').innerText = topProd ? `${topProd[0]} (${topProd[1]} un)` : "-";
 
     const rankingClientes = {};
-    vendas.forEach(v => { rankingClientes[v.cliente] = (rankingClientes[v.cliente] || 0) + v.total; });
-    const topCliente = Object.entries(rankingClientes).sort((a,b) => b[1] - a[1])[0];
-    document.getElementById('dash-cliente-top').innerText = topCliente ? `${topCliente[0]} (R$ ${topCliente[1].toFixed(2)})` : "-";
+    vendasPeriodo.forEach(v => { 
+        const nomeCliente = v.cliente || "Cliente Geral";
+        rankingClientes[nomeCliente] = (rankingClientes[nomeCliente] || 0) + v.total; 
+    });
+
+    const topClientesOrdenados = Object.entries(rankingClientes)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+
+    const dash1 = document.getElementById('dash-cliente-1');
+    const dash2 = document.getElementById('dash-cliente-2');
+    const dash3 = document.getElementById('dash-cliente-3');
+
+    if (topClientesOrdenados.length > 0) {
+        dash1.innerHTML = `${topClientesOrdenados[0][0]} <span style="float:right; color:#27ae60">R$ ${topClientesOrdenados[0][1].toFixed(2)}</span>`;
+        dash2.innerHTML = topClientesOrdenados[1] 
+            ? `2º ${topClientesOrdenados[1][0]} <span style="float:right">R$ ${topClientesOrdenados[1][1].toFixed(2)}</span>` 
+            : "2º ---";
+        dash3.innerHTML = topClientesOrdenados[2] 
+            ? `3º ${topClientesOrdenados[2][0]} <span style="float:right">R$ ${topClientesOrdenados[2][1].toFixed(2)}</span>` 
+            : "3º ---";
+    } else {
+        dash1.innerText = "Nenhuma venda no período";
+        dash2.innerText = "-";
+        dash3.innerText = "-";
+    }
 
     const abaixoDeUm = produtos.filter(p => p.estoque < 1).length;
     document.getElementById('dash-estoque-critico').innerText = `${abaixoDeUm} produtos`;
@@ -849,6 +916,13 @@ function atualizarDash() {
         data: { labels: labelsDias, datasets: [{ label: 'Vendas (R$)', data: valoresDias, borderColor: '#e67e22', fill: true, tension: 0.3 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
+}
+function toggleTopClientes() {
+    const extras = document.getElementById('clientes-extras');
+    const seta = document.getElementById('seta-top');
+    const fechado = extras.style.display === 'none';
+    extras.style.display = fechado ? 'block' : 'none';
+    seta.style.transform = fechado ? 'rotate(180deg)' : 'rotate(0deg)';
 }
 
 // --- BACKUP ---
@@ -1838,3 +1912,54 @@ function atualizarSelectsProdutos() {
     popularEstilizar(selInv, "Selecionar para Inventário...");
     popularEstilizar(selProd, "Selecionar para Produção...");
 }
+
+// 1. Função para calcular e exibir o Top 3
+function atualizarTopClientesPorPeriodo(vendasNoPeriodo) {
+    const dash1 = document.getElementById('dash-cliente-1');
+    const dash2 = document.getElementById('dash-cliente-2');
+    const dash3 = document.getElementById('dash-cliente-3');
+
+    // Agrupa totais por cliente
+    const ranking = {};
+    vendasNoPeriodo.forEach(v => {
+        const nome = v.cliente || "Cliente Geral";
+        ranking[nome] = (ranking[nome] || 0) + (v.total || 0);
+    });
+
+    // Ordena do maior para o menor
+    const ordenados = Object.entries(ranking)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+
+    // Preenche o HTML
+    if (ordenados.length > 0) {
+        dash1.innerHTML = `1º ${ordenados[0][0]} <span style="float:right; color:#27ae60">R$ ${ordenados[0][1].toFixed(2)}</span>`;
+        
+        dash2.innerHTML = ordenados[1] 
+            ? `2º ${ordenados[1][0]} <span style="float:right">R$ ${ordenados[1][1].toFixed(2)}</span>` 
+            : "2º ---";
+            
+        dash3.innerHTML = ordenados[2] 
+            ? `3º ${ordenados[2][0]} <span style="float:right">R$ ${ordenados[2][1].toFixed(2)}</span>` 
+            : "3º ---";
+    } else {
+        dash1.innerText = "Nenhuma venda";
+        dash2.innerText = "-";
+        dash3.innerText = "-";
+    }
+}
+
+// 2. Função para o efeito de abrir/fechar
+function toggleTopClientes() {
+    const extras = document.getElementById('clientes-extras');
+    const seta = document.getElementById('seta-top');
+    
+    if (extras.style.display === 'none') {
+        extras.style.display = 'block';
+        seta.style.transform = 'rotate(180deg)';
+    } else {
+        extras.style.display = 'none';
+        seta.style.transform = 'rotate(0deg)';
+    }
+}
+
