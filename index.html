@@ -24,6 +24,8 @@
 </script>
 </head>
 <body>
+ 
+
     <div id="modalLogin" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; display:flex; align-items:center; justify-content:center; font-family: sans-serif; color: #333;">
     <div style="background:white; padding:30px; border-radius:15px; max-width:400px; width:90%; text-align:center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
         <h2 style="margin-bottom: 10px; color: #2e7d32;">🌿 Gestão Jirineu</h2>
@@ -209,7 +211,7 @@
                 <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                     <button class="btn-report" style="background: var(--success);" onclick="showScreen('add')">➕ Novo</button>
                     <button class="btn-report" style="background: #2980b9;" onclick="abrirPainelInventario()">📝 Inv.</button>
-                    <button class="btn-report" onclick="gerarRelatorioPDF()">📋 PDF</button>
+                    <button class="btn-report" onclick="gerarRelatorioPDF()">📋PDF</button>
                     <button onclick="gerarPDFCompras()" style="background: #1c974f; color: white; padding: 5px; border-radius: 10px;">📄</button>
                 </div>
             </div>
@@ -334,6 +336,17 @@
 
     <button class="btn btn-cancel" onclick="efetuarLogout()" style="margin-top:20px; width:100%;">Encerrar Sessão (Logout)</button>
 </section>
+
+   <div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
+  <h2>Instalar Jirineu Gerenciamento</h2>
+  <p>Clique no botão abaixo para baixar o instalador oficial.</p>
+  
+  <a href="app-release.apk" download="Jirineu_Gerenciamento.apk">
+    <button style="padding: 15px 30px; font-size: 18px; background-color: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer;">
+      ⬇️ Baixar APK (Android)
+    </button>
+  </a>
+</div>
     </main>
 
     <nav class="bottom-nav">
