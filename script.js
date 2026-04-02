@@ -676,15 +676,16 @@ function adicionarAoCarrinho() {
 function atualizarCarrinhoUI() {
     const cont = document.getElementById('carrinho-itens');
     if (!cont) return;
+    
     cont.innerHTML = '';
-    let total = 0;
+    let subtotalGeral = 0;
 
+    // Calcula o valor bruto dos itens no carrinho
     carrinho.forEach((c, index) => {
-        // PROTEÇÃO: Garante que preco e qtd sejam números
         const preco = parseFloat(c.preco) || 0;
         const qtd = parseFloat(c.qtd) || 1;
         const sub = qtd * preco;
-        total += sub;
+        subtotalGeral += sub;
 
         cont.innerHTML += `
             <div class="item-row">
@@ -695,8 +696,25 @@ function atualizarCarrinhoUI() {
             </div>`;
     });
 
+    // FORÇA A ATUALIZAÇÃO DA CAIXA DE VENDA
+    const inputDesconto = document.getElementById('v-desconto');
+    const valorDesconto = inputDesconto ? parseFloat(inputDesconto.value) || 0 : 0;
+
+    // Subtrai o desconto do subtotal
+    const totalComDesconto = Math.max(0, subtotalGeral - valorDesconto);
+
+    // Atualiza o elemento visual do total
     const totalEl = document.getElementById('v-total-carrinho');
-    if (totalEl) totalEl.innerText = `R$ ${total.toFixed(2)}`;
+    if (totalEl) {
+        totalEl.innerText = `R$ ${totalComDesconto.toFixed(2)}`;
+        
+        // Opcional: Feedback visual se houver desconto
+        if (valorDesconto > 0) {
+            totalEl.style.color = "var(--primary)"; // Cor de destaque (Ouro)
+        } else {
+            totalEl.style.color = "var(--success)"; // Verde padrão
+        }
+    }
 }
 
 function removerDoCarrinho(index) {
@@ -706,18 +724,31 @@ function removerDoCarrinho(index) {
 
 function finalizarVenda() {
     if(carrinho.length === 0) return notify("Aviso", "Carrinho vazio.", "warning");
+    
     const status = document.getElementById('v-status-pagamento').value;
-    const total = carrinho.reduce((a, b) => a + (b.qtd * b.preco), 0);
+    
+    // 1. Captura o valor do desconto do input
+    const descontoInput = document.getElementById('v-desconto');
+    const valorDesconto = descontoInput ? parseFloat(descontoInput.value) || 0 : 0;
+    
+    // 2. Calcula o subtotal (sem desconto)
+    const subtotal = carrinho.reduce((a, b) => a + (b.qtd * b.preco), 0);
+    
+    // 3. Calcula o total final (garantindo que não seja menor que zero)
+    const totalFinal = Math.max(0, subtotal - valorDesconto);
     
     const venda = {
         id: Date.now(),
         dataISO: new Date().toISOString(),
         cliente: document.getElementById('v-cliente-nome').value || "Cliente Geral",
         itens: [...carrinho],
-        total: total,
+        subtotal: subtotal,        // Valor bruto
+        desconto: valorDesconto,   // Valor do desconto aplicado
+        total: totalFinal,         // Valor líquido
         status: status
     };
 
+    // Baixa no estoque
     carrinho.forEach(item => {
         const pIdx = produtos.findIndex(p => p.id === item.id);
         if(pIdx !== -1) produtos[pIdx].estoque -= item.qtd;
@@ -725,9 +756,62 @@ function finalizarVenda() {
 
     vendas.push(venda);
     sincronizar();
+    
+    // Limpa o campo de desconto para a próxima venda
+    if(descontoInput) descontoInput.value = 0;
+
     notify("Sucesso", status === 'pago' ? "Venda finalizada!" : "Registrada como devedor!", "success");
     showScreen('vendas');
-    atualizarIndicadoresDevedores()
+    atualizarIndicadoresDevedores();
+}
+let diasFiltroGlobal = 7; 
+
+// 2. Função para abrir o Popup (SweetAlert2)
+async function abrirPopupFiltro() {
+    const { value: dias } = await Swal.fire({
+        title: 'Escolher Período',
+        input: 'select',
+        inputOptions: {
+            '7': 'Últimos 7 dias',
+            '15': 'Últimos 15 dias',
+            '30': 'Últimos 30 dias',
+            '90': 'Últimos 90 dias',
+            '0': 'Todo o período'
+        },
+        inputValue: diasFiltroGlobal,
+        showCancelButton: true,
+        confirmButtonColor: '#D4AF37',
+        cancelButtonColor: '#333',
+        background: '#121212',
+        color: '#fff',
+        confirmButtonText: 'Aplicar',
+        cancelButtonText: 'Voltar',
+        
+        // Customização para centralizar e diminuir o seletor
+        didOpen: () => {
+            const select = Swal.getInput();
+            if (select) {
+                // Estilo para centralizar e reduzir tamanho
+                select.style.width = '80%';           // Um pouco menor que o total
+                select.style.maxWidth = '250px';      // Limite para não ficar largo demais
+                select.style.margin = '15px auto';    // Centraliza horizontalmente (auto)
+                select.style.display = 'block';       // Garante que o 'auto' funcione
+                
+                // Estética Dark
+                select.style.background = '#1e1e1e';
+                select.style.color = '#fff';
+                select.style.border = '1px solid #333';
+                select.style.borderRadius = '8px';
+                select.style.padding = '8px';
+                select.style.textAlign = 'center';
+            }
+        }
+    });
+
+    if (dias !== undefined) {
+        diasFiltroGlobal = parseInt(dias);
+        listarVendas(); 
+    }
 }
 
 function listarVendas() {
@@ -735,27 +819,43 @@ function listarVendas() {
     const termo = document.getElementById('busca-venda').value.toLowerCase();
     const btnSomar = document.getElementById('btn-somar-devedores');
     
+    // USANDO A VARIÁVEL DO POPUP EM VEZ DO SELECT NO HTML
+    const diasFiltro = diasFiltroGlobal; 
+    
+    if (!cont) return;
     cont.innerHTML = '';
 
-    // Mostra o botão se houver pesquisa, esconde se estiver vazio
     btnSomar.style.display = termo.length > 0 ? "block" : "none";
 
+    const agora = new Date();
+
     const vendasFiltradas = vendas.filter(v => {
+        const dataVenda = new Date(v.dataISO);
         const nomeCliente = (v.cliente || "").toLowerCase();
-        const dataF = new Date(v.dataISO).toLocaleString('pt-BR').toLowerCase();
-        return nomeCliente.includes(termo) || dataF.includes(termo);
+        const dataFormatada = dataVenda.toLocaleString('pt-BR').toLowerCase();
+        
+        let passaFiltroData = true;
+        if (diasFiltro > 0) {
+            const diffMs = agora - dataVenda;
+            const diffDias = diffMs / (1000 * 60 * 60 * 24);
+            passaFiltroData = diffDias <= diasFiltro;
+        }
+
+        const bateBusca = nomeCliente.includes(termo) || dataFormatada.includes(termo);
+        return passaFiltroData && bateBusca;
     });
 
+    // Renderização do mais novo para o mais antigo
     vendasFiltradas.slice().reverse().forEach(v => {
-        // ... (Mantenha o resto do seu código de renderização que você já tem aqui) ...
         const dataF = new Date(v.dataISO).toLocaleString('pt-BR');
         const isPago = v.status === 'pago';
         const corStatus = isPago ? '#27ae60' : '#e67e22';
         const labelStatus = isPago ? 'PAGO' : 'DEVEDOR';
+        
         const botaoBaixa = !isPago ? `<button class="btn-mini" style="background:#27ae60" onclick="darBaixaVenda(${v.id})">Baixa</button>` : '';
 
         cont.innerHTML += `
-            <div class="item-row venta-item" data-devedor="${!isPago}" data-valor="${v.total}" style="border-left: 5px solid ${corStatus}">
+             <div class="item-row venta-item" data-devedor="${!isPago}" data-valor="${v.total}" style="border-left: 5px solid ${corStatus}">
                 <div style="flex-grow: 1;">
                     <div class="info-main">${v.cliente} <small style="color:${corStatus}">(${labelStatus})</small></div>
                     <div class="info-sub">${dataF} | <b>Total: R$ ${v.total.toFixed(2)}</b></div>
@@ -767,6 +867,10 @@ function listarVendas() {
                 </div>
             </div>`;
     });
+
+    if (vendasFiltradas.length === 0) {
+        cont.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">Nenhuma venda encontrada.</p>';
+    }
 }
 function somarResultadosDevedores() {
     const termo = document.getElementById('busca-venda').value.toLowerCase();
