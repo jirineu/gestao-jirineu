@@ -237,60 +237,74 @@
             </div>
         </section>
 
-        <section id="screen-vendas" class="screen">
-            <div class="header-vendas">
-                <h2 class="section-title">💰 Vendas</h2>
-                <div 
+     <section id="screen-vendas" class="screen">
+    <div class="header-vendas">
+        <div>
+            <h2 class="section-title" style="margin: 0;">💰 Vendas</h2>
+            <button onclick="abrirPopupFiltro()" class="btn-filtro-nano">
+                <span>⏳</span>
+            </button>
+        </div>
+
         <div id="indicador-devedores-vendas" style="font-size: 0.9rem; color: #c0392b; font-weight: bold; background: #fff5f5; padding: 8px 15px; border-radius: 8px; border-left: 4px solid var(--danger); box-shadow: var(--shadow);">
     Devedores: R$ 0,00
 </div>
-                <button class="btn-action" onclick="abrirNovaVenda()">Nova Venda</button>
-            </div> 
-       
-            <div class="search-box">
+        
+       <button class="btn-action" onclick="abrirNovaVenda()">Nova Venda</button>
+    </div> 
+
+    <div class="search-box">
                 <input type="text" id="busca-venda" placeholder="🔍 Cliente ou Data..." onkeyup="listarVendas()">
                              <button id="btn-somar-devedores" onclick="somarResultadosDevedores()" style=" background: var(--success); color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer;">
         🧮 Somar
     </button>
    
             </div>
-            
-            <div id="lista-vendas-realizadas" class="list-container"></div>
+    
+  <div id="lista-vendas-realizadas" class="list-container"></div>
         </section>
 
-        <section id="screen-nova-venda" class="screen">
-            <h2 class="section-title">🛒 Nova Venda</h2>
-            <div class="card">
-                <div class="input-group">
-                    <label>Nome do Cliente</label>
-                    <input type="text" id="v-cliente-nome" placeholder="Opcional">
-                </div>
-                
-                <div class="cart-selector" style="background: #f9f9f9; padding: 10px; border-radius: 8px;">
-                    <label>Produto</label>
-                    <select id="v-produto-select" class="custom-select" style="margin-bottom: 10px;"></select>
-                    <div class="row">
-                        <input type="number" id="v-qtd" value="1" min="1" style="flex: 1;">
-                        
-                        <button class="btn btn-save" style="flex: 2;" onclick="adicionarAoCarrinho()">Adicionar</button>
-                    </div>
-                </div>
-                <div id="carrinho-itens" style="margin:20px 0; border-bottom: 1px dashed #ccc;"></div>
-                <div class="cart-total" style="display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 20px;">
-                    <span>Total:</span>
-                    <strong id="v-total-carrinho" style="color: var(--success);">R$ 0,00</strong>
-                </div>
-                <div class="input-group" style="margin-top: 15px;">
-    <label>Situação do Pagamento</label>
-    <select id="v-status-pagamento" class="custom-select">
-        <option value="pago" selected>✅ Pago </option>
-        <option value="devedor">⏳ Devedor </option>
-    </select>
-</div>
-                <button class="btn btn-save" onclick="finalizarVenda()">✅ Finalizar Venda</button>
-                <button class="btn btn-cancel" style="margin-top:10px" onclick="showScreen('vendas')">Cancelar</button>
+<section id="screen-nova-venda" class="screen">
+    <h2 class="section-title">🛒 Nova Venda</h2>
+    <div class="card">
+        <div class="input-group">
+            <label>Nome do Cliente</label>
+            <input type="text" id="v-cliente-nome" placeholder="Opcional">
+        </div>
+        
+        <div class="cart-selector" style="background: #f9f9f9; padding: 10px; border-radius: 8px;">
+            <label>Produto</label>
+            <select id="v-produto-select" class="custom-select" style="margin-bottom: 10px;"></select>
+            <div class="row">
+                <input type="number" id="v-qtd" value="1" min="1" style="flex: 1;">
+                <button class="btn btn-save" style="flex: 2;" onclick="adicionarAoCarrinho()">Adicionar</button>
             </div>
-        </section>
+        </div>
+
+        <div id="carrinho-itens" style="margin:20px 0; border-bottom: 1px dashed #ccc;"></div>
+
+   <div class="input-group" style="margin-bottom: 10px;">
+    <label>Desconto (R$)</label>
+    <input type="number" id="v-desconto" placeholder="0,00" step="0.01" value="0" oninput="atualizarCarrinhoUI()">
+</div>
+
+        <div class="cart-total" style="display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 20px;">
+            <span>Total Final:</span>
+            <strong id="v-total-carrinho" style="color: var(--success);">R$ 0,00</strong>
+        </div>
+
+        <div class="input-group" style="margin-top: 15px;">
+            <label>Situação do Pagamento</label>
+            <select id="v-status-pagamento" class="custom-select">
+                <option value="pago" selected>✅ Pago </option>
+                <option value="devedor">⏳ Devedor </option>
+            </select>
+        </div>
+
+        <button class="btn btn-save" onclick="finalizarVenda()">✅ Finalizar Venda</button>
+        <button class="btn btn-cancel" style="margin-top:10px" onclick="showScreen('vendas')">Cancelar</button>
+    </div>
+</section>
 
      <section id="screen-config" class="screen">
     <h2 class="section-title">⚙️ Configurações</h2>
