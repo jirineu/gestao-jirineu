@@ -846,27 +846,43 @@ function listarVendas() {
     });
 
     // Renderização do mais novo para o mais antigo
-    vendasFiltradas.slice().reverse().forEach(v => {
-        const dataF = new Date(v.dataISO).toLocaleString('pt-BR');
-        const isPago = v.status === 'pago';
-        const corStatus = isPago ? '#27ae60' : '#e67e22';
-        const labelStatus = isPago ? 'PAGO' : 'DEVEDOR';
-        
-        const botaoBaixa = !isPago ? `<button class="btn-mini" style="background:#27ae60" onclick="darBaixaVenda(${v.id})">Baixa</button>` : '';
+     vendasFiltradas.slice().reverse().forEach(v => {
+    const dataF = new Date(v.dataISO).toLocaleString('pt-BR');
+    const isPago = v.status === 'pago';
+    const corStatus = isPago ? '#27ae60' : '#e67e22';
+    const labelStatus = isPago ? 'PAGO' : 'DEVEDOR';
+    const botaoBaixa = !isPago ? `<button class="btn-mini" style="background:#27ae60" onclick="darBaixaVenda(${v.id})">Baixa</button>` : '';
 
-        cont.innerHTML += `
-             <div class="item-row venta-item" data-devedor="${!isPago}" data-valor="${v.total}" style="border-left: 5px solid ${corStatus}">
-                <div style="flex-grow: 1;">
-                    <div class="info-main">${v.cliente} <small style="color:${corStatus}">(${labelStatus})</small></div>
-                    <div class="info-sub">${dataF} | <b>Total: R$ ${v.total.toFixed(2)}</b></div>
+    // Lógica de estilo: Se for PAGO, volta ao original (row). Se for DEVEDOR, fica em coluna.
+    const estiloDinamico = isPago 
+        ? "display: block;" 
+        : "display: flex; flex-direction: column; gap: 2px;";
+    
+    const divisor = isPago ? " | " : "";
+
+    cont.innerHTML += `
+        <div class="item-row venta-item" data-devedor="${!isPago}" data-valor="${v.total}" style="border-left: 5px solid ${corStatus}">
+            <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+                <div class="info-main" style="font-weight: bold;">
+                    ${v.cliente} <small style="color:${corStatus}">(${labelStatus})</small>
                 </div>
-                <div style="display:flex; gap:12px; align-items: center;">
-                    ${botaoBaixa}
-                    <button onclick="verDetalhesVenda(${v.id})" style="background:none; border:none; text-decoration:underline;">Itens</button>
-                    <button onclick="estornarVenda(${v.id})" style="color:var(--danger); border:none; background:none; font-weight:bold;">Estornar</button>
+                
+                <div class="info-sub" style="${estiloDinamico}">
+                    <span>${dataF}</span>
+                    ${divisor}
+                    <b style="color: #4d4d4d91;">Total: R$ ${v.total.toFixed(2)}</b>
                 </div>
-            </div>`;
-    });
+            </div>
+            
+            <div style="display:flex; gap:12px; align-items: center;">
+                ${botaoBaixa}
+                <button onclick="verDetalhesVenda(${v.id})" style="background:none; border:none; text-decoration:underline; cursor:pointer;">Itens</button>
+                <button onclick="estornarVenda(${v.id})" style="color:var(--danger); border:none; background:none; font-weight:bold; cursor:pointer;">Estornar</button>
+            </div>
+        </div>`;
+});
+
+    
 
     if (vendasFiltradas.length === 0) {
         cont.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">Nenhuma venda encontrada.</p>';
