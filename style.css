@@ -297,3 +297,20 @@ input, select, textarea {
 .btn-confirmar-lista i {
     font-style: normal; /* Para ícones de emoji ou font-awesome */
 }
+
+.btn-filtro-nano {
+    color: #D4AF37; /* Ouro */
+    padding:1px;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: left;
+    transition: 0.3s;
+    margin-left: 1px;
+    margin-top: 4px;
+}
+
+.btn-filtro-nano:hover {
+    border-color: #D4AF37;
+    background: #252525;
+}
